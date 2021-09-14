@@ -1,0 +1,2 @@
+eye.z read: -17.571167676482215
+eye.z updated: 10.0

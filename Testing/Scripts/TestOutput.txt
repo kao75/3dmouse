@@ -1,0 +1,18 @@
+This is a test
+
+eye - x: 7.780434697888387
+eye - y: 7.780434697888387
+eye - z: 40.0
+
+target - x: 1.269999944663141
+target - y: 1.269999944663141
+target - z: 1.269999944663141
+
+upVector - x: 0.0
+upVector - y: 1.0
+upVector - z: 0.0
+
+viewExtents: 15.979055322785573
+
+perspective angle: 0.39479111969976155
+
