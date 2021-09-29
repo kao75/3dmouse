@@ -1,0 +1,10 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"script",
+	"author":	"Jared Carl",
+	"description":	{
+		"":	"Implementation for algorithms for all three modes of operation"
+	},
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
