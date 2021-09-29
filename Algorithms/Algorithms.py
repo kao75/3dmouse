@@ -7,10 +7,12 @@ import adsk.core, adsk.fusion, adsk.cam, traceback, math
 def run(context):
     ui = None
     try:
-        # create and initialize the application, viewportm and camera objects
+        # create and initialize the application, viewport, and camera objects
         app = adsk.core.Application.get()
         viewport = app.activeViewport
-        camera = viewport.camera
+
+        # initialize the camera smooth trnsition parameter to True
+        viewport.camera.isSmoothTransition = True
 
         # create and initialize the message ui
         ui  = app.userInterface
@@ -38,19 +40,26 @@ def run(context):
 
 # Execute Orbit
 #   Inputs:
-#       app, viewport, camera, ui
+#       app, viewport, ui, Lx, Ly, Lz
 #   Outputs:
 #       N/A
 #   Assume hardware sends operation mode input as Orbit.
 #   Only changes the direction once, will add hardware input and output with 
 #   the addition of that software.
-def orbit(app, viewport, camera, ui, Lx, Ly, Lz):
+def orbit(app, viewport, ui, Lx, Ly, Lz):
     try:
         # find the current orientation of the upVector
-        uVx0, uVy0, uVz0 = upVectorOrientation(camera, ui)
+        uVx0, uVy0, uVz0 = upVectorOrientation(viewport.camera, ui)
 
         # execute the algorithm
         uVx1, uVy1, uVz1 = orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0)
+
+        # set the new upVector
+        viewport.camera.upVector = adsk.core.Vector3D.create(uVx1, uVy1, uVz1)
+
+        # make the changes in Fusion 360
+        adsk.doEvents()
+        viewport.refresh()
 
     except:
         if ui:
@@ -74,7 +83,7 @@ def upVectorOrientation(camera, ui):
 #   Inputs:
 #       ui
 #   Outputs:
-#       Lx, Ly, Lz
+#       Lx, Ly, Lz, mode
 #   Read in change in direction and mode inputs from hardware.
 #   For testing purposes, just input three integers as the change in arc
 #   length on the cue ball, and keep the mode of operation at 0 for orbit.
@@ -97,21 +106,51 @@ def hardwareInput(ui):
 #       ui, Lx0, Ly0, Lz0, uVx0, uVy0, uVz0
 #   Outputs:
 #       uVx1, uVy1, uVz1
-# Run through the Orbit algorithm described in the Conceptual Design Document
+# Run through the Orbit algorithm described in the Conceptual Design Document.
+# Not optimized for memory
 def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
     try:
         pi = math.pi    # initialize pi locally
         Rc = 3          # radius of the cue ball in ***some units***
 
-        Tx = (180 * Lx) / (pi * Rc) # change in angle relative to x in the Lx arc length
-        Ty = (180 * Ly) / (pi * Rc) # change in angle relative to y in the Ly arc length
-        Tz = (180 * Lz) / (pi * Rc) # change in angle relative to z in the Lz arc length
+        # calculate thetas
+        Tx = (180 * Lx) / (pi * Rc)   # change in angle relative to x in the Lx arc length
+        Ty = (180 * Ly) / (pi * Rc)   # change in angle relative to y in the Ly arc length
+        Tz = (180 * Lz) / (pi * Rc)   # change in angle relative to z in the Lz arc length
+
+        # calculate vector rotations around each axis
+        # z-axis
+        XzP = uVx0 * math.cos(math.radians(Tz)) - uVy0 * math.sin(math.radians(Tz))
+        YzP = uVx0 * math.sin(math.radians(Tz)) + uVy0 * math.cos(math.radians(Tz))
+        ZzP = uVz0
+        
+        # y-axis
+        XyP = uVx0 * math.cos(math.radians(Ty)) + uVz0 * math.sin(math.radians(Ty))
+        YyP = uVy0
+        ZyP = uVz0 * math.sin(math.radians(Ty)) - uVx0 * math.cos(math.radians(Ty))
+
+        # x-axis
+        XxP = uVx0
+        YxP = uVy0 * math.cos(math.radians(Tx)) - uVz0 * math.sin(math.radians(Tx))
+        ZxP = uVy0 * math.sin(math.radians(Tx)) + uVz0 * math.cos(math.radians(Tx))
+
+        # combine the final upVector calculations from each vector rotation
+        uVx1 = XzP + XyP + XzP
+        uVy1 = YzP + YyP + YxP
+        uVz1 = ZzP + ZyP + ZxP
+
+        # return the final upVector indeces
+        return uVx1, uVy1, uVz1
 
     except:
         if ui:
             ui.messageBox('Failed in algorithm:\n{}'.format(traceback.format_exc()))
 
 # Execute Pan
+#   Inputs:
+#       ui
+#   Outputs:
+#       N/A
 # Placeholder function for now
 def pan(ui):
     try:
@@ -121,6 +160,10 @@ def pan(ui):
             ui.messageBox('Failed in Pan:\n{}'.format(traceback.format_exec()))
 
 # Execute Zoom
+#   Inputs:
+#       ui
+#   Outputs:
+#       N/A
 # Plceholder function for now
 def zoom(ui):
     try:
