@@ -1,7 +1,7 @@
 #Author-Jared Carl
 #Description-Implementation for algorithms for all three modes of operation for the 3D Mouse
 
-from _typeshed import ReadableBuffer
+#from _typeshed import ReadableBuffer
 import adsk.core, adsk.fusion, adsk.cam, traceback, math
 
 def run(context):
@@ -57,6 +57,9 @@ def orbit(app, viewport, ui, Lx, Ly, Lz):
         # set the new upVector
         viewport.camera.upVector = adsk.core.Vector3D.create(uVx1, uVy1, uVz1)
 
+        # debugging function
+        debug(ui, uVx0, uVy0, uVz0, uVx1, uVy1, uVz1)
+
         # make the changes in Fusion 360
         adsk.doEvents()
         viewport.refresh()
@@ -64,6 +67,27 @@ def orbit(app, viewport, ui, Lx, Ly, Lz):
     except:
         if ui:
             ui.messageBox('Failed in orbit:\n{}'.format(traceback.format_exc()))
+
+# Debug
+def debug(ui, uVx0, uVy0, uVz0, uVx1, uVy1, uVz1):
+    try:
+        filePath = 'C:\\Users\\mcqkn\\Documents\\Fall_2021\\ECE1896\\Autodesk Output Files'
+        fileName = '\\IO_Debug.txt'
+
+        output = open(filePath + fileName, 'w')
+        output.write("Debugging notes for IO in Algorithms.py\n\n")
+
+        output.write('uVx0 = ' + str(uVx0) + '\n')
+        output.write('uVy0 = ' + str(uVy0) + '\n')
+        output.write('uVz0 = ' + str(uVz0) + '\n\n')
+
+        output.write('uVx1 = ' + str(uVx1) + '\n')
+        output.write('uVy1 = ' + str(uVy1) + '\n')
+        output.write('uVz1 = ' + str(uVz1) + '\n')
+
+    except:
+        if ui:
+            ui.messageBox('Failed in Debug:\n{}'.format(traceback.format_exc()))
 
 # Execute upVectorOrientation
 #   Inputs:
@@ -110,13 +134,25 @@ def hardwareInput(ui):
 # Not optimized for memory
 def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
     try:
+        filePath = 'C:\\Users\\mcqkn\\Documents\\Fall_2021\\ECE1896\\Autodesk Output Files'
+        fileName = '\\Algorithm_Debug.txt'
+
+        output = open(filePath + fileName, 'w')
+        output.write("Debugging notes for orbitAlgorithm in Algorithms.py\n\n")
+
         pi = math.pi    # initialize pi locally
         Rc = 3          # radius of the cue ball in ***some units***
+        piRc = pi * Rc
 
         # calculate thetas
-        Tx = (180 * Lx) / (pi * Rc)   # change in angle relative to x in the Lx arc length
-        Ty = (180 * Ly) / (pi * Rc)   # change in angle relative to y in the Ly arc length
-        Tz = (180 * Lz) / (pi * Rc)   # change in angle relative to z in the Lz arc length
+        Tx = (180 * Lx) / piRc  # change in angle relative to x in the Lx arc length
+        Ty = (180 * Ly) / piRc   # change in angle relative to y in the Ly arc length
+        Tz = (180 * Lz) / piRc   # change in angle relative to z in the Lz arc length
+
+        # print thetas
+        output.write('Tx = ' + str(Tx) + '\n')
+        output.write('Ty = ' + str(Ty) + '\n')
+        output.write('Tz = ' + str(Tz) + '\n')
 
         # calculate trig functions in advance to save computation time
         cosTz = math.cos(math.radians(Tz))
@@ -129,13 +165,13 @@ def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
         # calculate vector rotations around each axis
         # z-axis
         XzP = uVx0 * cosTz - uVy0 * sinTz
-        YzP = uVx0 * sinTz + uVy0 *cosTz
+        YzP = uVx0 * sinTz + uVy0 * cosTz
         ZzP = uVz0
         
         # y-axis
         XyP = uVx0 * cosTy + uVz0 * sinTy
         YyP = uVy0
-        ZyP = uVz0 * sinTy - uVx0 * cosTy
+        ZyP = uVz0 * cosTy - uVx0 * sinTy
 
         # x-axis
         XxP = uVx0
