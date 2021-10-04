@@ -98,6 +98,8 @@ void loop() {
     Serial.print(xRel);
     Serial.print(", ");
     Serial.print(yRel);
+    Serial.print(", ");
+    Serial.print(zRel);
     Serial.println(")");
     delay(200);
 }
