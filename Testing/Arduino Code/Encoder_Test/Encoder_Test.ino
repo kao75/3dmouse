@@ -1,5 +1,9 @@
-// Encoder_Test.ino
-// Used for 1st checkoff for ECE 1896: Interface with mechanical trackball and rotary encoders
+/*
+ * Encoder_Test.ino
+ * Used for 1st checkoff for ECE 1896: Interface with mechanical trackball and rotary encoders
+ * Created By: Dylan Butler
+ * Last Modified: 10/4/2021
+ */
 
 // Include the SPI library in this sketch
 #include <SPI.h>
@@ -94,6 +98,7 @@ void loop() {
 
     int xRel = calcRelData(xPos, &xPrev);
     int yRel = calcRelData(yPos, &yPrev);
+    int zRel = calcRelData(zPos, &zPrev);
     Serial.print("(x,y,z): (");
     Serial.print(xRel);
     Serial.print(", ");
