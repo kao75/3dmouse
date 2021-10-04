@@ -118,21 +118,29 @@ def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
         Ty = (180 * Ly) / (pi * Rc)   # change in angle relative to y in the Ly arc length
         Tz = (180 * Lz) / (pi * Rc)   # change in angle relative to z in the Lz arc length
 
+        # calculate trig functions in advance to save computation time
+        cosTz = math.cos(math.radians(Tz))
+        sinTz = math.sin(math.radians(Tz))
+        cosTy = math.cos(math.radians(Ty))
+        sinTy = math.sin(math.radians(Ty))
+        cosTx = math.cos(math.radians(Tx))
+        sinTx = math.sin(math.radians(Tx))
+
         # calculate vector rotations around each axis
         # z-axis
-        XzP = uVx0 * math.cos(math.radians(Tz)) - uVy0 * math.sin(math.radians(Tz))
-        YzP = uVx0 * math.sin(math.radians(Tz)) + uVy0 * math.cos(math.radians(Tz))
+        XzP = uVx0 * cosTz - uVy0 * sinTz
+        YzP = uVx0 * sinTz + uVy0 *cosTz
         ZzP = uVz0
         
         # y-axis
-        XyP = uVx0 * math.cos(math.radians(Ty)) + uVz0 * math.sin(math.radians(Ty))
+        XyP = uVx0 * cosTy + uVz0 * sinTy
         YyP = uVy0
-        ZyP = uVz0 * math.sin(math.radians(Ty)) - uVx0 * math.cos(math.radians(Ty))
+        ZyP = uVz0 * sinTy - uVx0 * cosTy
 
         # x-axis
         XxP = uVx0
-        YxP = uVy0 * math.cos(math.radians(Tx)) - uVz0 * math.sin(math.radians(Tx))
-        ZxP = uVy0 * math.sin(math.radians(Tx)) + uVz0 * math.cos(math.radians(Tx))
+        YxP = uVy0 * cosTx - uVz0 * sinTx
+        ZxP = uVy0 * sinTx + uVz0 * cosTx
 
         # combine the final upVector calculations from each vector rotation
         uVx1 = XzP + XyP + XzP
