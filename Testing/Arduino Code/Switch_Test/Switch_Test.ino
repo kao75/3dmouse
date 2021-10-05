@@ -2,7 +2,7 @@
  * Switch_Test.ino
  * Used for 1st checkoff for ECE 1896: Interface with mode switches and LEDs
  * Created By: Dylan Butler
- * Last Modified: 10/4/2021
+ * Last Modified: 10/5/2021
  */
 
 // Define Global Constants
@@ -13,7 +13,7 @@
 #define LED_ORBIT_PIN 6
 
 // Global variables for interrupt
-volatile byte currMode = 0;
+volatile byte modeCounter = 0;
 
 // Global variables
 byte modeNumber = 0;
@@ -35,9 +35,9 @@ void setup() {
 
 void loop() {
   Serial.print("Current Mode: ");
-  Serial.print(currMode);
+  Serial.print(modeCounter);
   Serial.print(" Mode Number: ");
-  modeNumber = currMode % 3;
+  modeNumber = modeCounter % 3;
   Serial.println(modeNumber);
   updateLeds();
   updateSwitchRight();
@@ -45,29 +45,32 @@ void loop() {
 }
 
 void updateSwitchRight(){
-  if(++currMode == 255){
-    currMode = 0;
+  if(++modeCounter == 255){
+    modeCounter = 0;
   }
 }
 
 void updateSwitchLeft(){
-  if(--currMode == 255){
-    currMode = 254;
+  if(--modeCounter == 255){
+    modeCounter = 254;
   }
 }
 
 void updateLeds(){
   if(modeNumber == 0){
+    Serial.println("Orbit LED");
     digitalWrite(LED_ORBIT_PIN, HIGH);
     digitalWrite(LED_PAN_PIN, LOW);
     digitalWrite(LED_ZOOM_PIN, LOW);
   }
   else if(modeNumber == 1){
+    Serial.println("Pan LED");
     digitalWrite(LED_ORBIT_PIN, LOW);
     digitalWrite(LED_PAN_PIN, HIGH);
     digitalWrite(LED_ZOOM_PIN, LOW);
   }
   else if(modeNumber == 2){
+    Serial.println("Zoom LED");
     digitalWrite(LED_ORBIT_PIN, LOW);
     digitalWrite(LED_PAN_PIN, LOW);
     digitalWrite(LED_ZOOM_PIN, HIGH);
