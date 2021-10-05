@@ -16,7 +16,7 @@ def run(context):
 
         # create and initialize the message ui
         ui  = app.userInterface
-        ui.messageBox('Script Executed!')
+        # ui.messageBox('Script Executed!')
 
         # read in the arc lengths from the hardware
         Lx, Ly, Lz, mode = hardwareInput(ui)
@@ -51,11 +51,16 @@ def orbit(app, viewport, ui, Lx, Ly, Lz):
         # find the current orientation of the upVector
         uVx0, uVy0, uVz0 = upVectorOrientation(viewport.camera, ui)
 
-        # execute the algorithm
-        uVx1, uVy1, uVz1 = orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0)
+        # execute the upVector algorithm
+        uVx1, uVy1, uVz1 = orbitUpVectorAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0)
+
+        # execute the eye algorithm
+        #Ex1, Ey1, Ez1 = orbitEyeAlgorithm(ui, target, uVx1, uVy1, uVz1)
 
         # set the new upVector
-        viewport.camera.upVector = adsk.core.Vector3D.create(uVx1, uVy1, uVz1)
+        camera = viewport.camera
+        camera.upVector = adsk.core.Vector3D.create(uVx1, uVy1, uVz1)
+        viewport.camera = camera
 
         # debugging function
         debug(ui, uVx0, uVy0, uVz0, uVx1, uVy1, uVz1)
@@ -113,9 +118,9 @@ def upVectorOrientation(camera, ui):
 #   length on the cue ball, and keep the mode of operation at 0 for orbit.
 def hardwareInput(ui):
     try:
-        Lx = 1          # arc length relative to the x direction
-        Ly = 1          # arc length relative to the y direction
-        Lz = 1          # arc length relative to the z direction
+        Lx = 0          # arc length relative to the x direction
+        Ly = 5          # arc length relative to the y direction
+        Lz = 0          # arc length relative to the z direction
         mode = 0        # mode of operation
 
         # return the read in directional values
@@ -132,7 +137,7 @@ def hardwareInput(ui):
 #       uVx1, uVy1, uVz1
 # Run through the Orbit algorithm described in the Conceptual Design Document.
 # Not optimized for memory
-def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
+def orbitUpVectorAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
     try:
         filePath = 'C:\\Users\\mcqkn\\Documents\\Fall_2021\\ECE1896\\Autodesk Output Files'
         fileName = '\\Algorithm_Debug.txt'
@@ -152,7 +157,7 @@ def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
         # print thetas
         output.write('Tx = ' + str(Tx) + '\n')
         output.write('Ty = ' + str(Ty) + '\n')
-        output.write('Tz = ' + str(Tz) + '\n')
+        output.write('Tz = ' + str(Tz) + '\n\n')
 
         # calculate trig functions in advance to save computation time
         cosTz = math.cos(math.radians(Tz))
@@ -161,6 +166,14 @@ def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
         sinTy = math.sin(math.radians(Ty))
         cosTx = math.cos(math.radians(Tx))
         sinTx = math.sin(math.radians(Tx))
+
+        # print trig functions
+        output.write('cos(Tz) = ' + str(cosTz) + '\n')
+        output.write('sin(Tz) = ' + str(sinTz) + '\n')
+        output.write('cos(Ty) = ' + str(cosTy) + '\n')
+        output.write('sin(Ty) = ' + str(sinTy) + '\n')
+        output.write('cos(Tx) = ' + str(cosTx) + '\n')
+        output.write('sin(Tx) = ' + str(sinTx) + '\n\n')
 
         # calculate vector rotations around each axis
         # z-axis
@@ -178,17 +191,50 @@ def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
         YxP = uVy0 * cosTx - uVz0 * sinTx
         ZxP = uVy0 * sinTx + uVz0 * cosTx
 
+        # print vector rotations around each axis
+        output.write('XzP: ' + str(uVx0) + ' * ' + str(cosTz) + ' - ' + str(uVy0) + ' * ' + str(sinTz) + ' = ' + str(XzP) + '\n')
+        output.write('YzP: ' + str(uVx0) + ' * ' + str(sinTz) + ' + ' + str(uVy0) + ' * ' + str(cosTz) + ' = ' + str(YzP) + '\n')
+        output.write('ZzP: ' + str(uVz0) + ' = ' + str(ZzP) + '\n\n')
+
+        output.write('XyP: ' + str(uVx0) + ' * ' + str(cosTy) + ' + ' + str(uVz0) + ' * ' + str(sinTy) + ' = ' + str(XyP) + '\n')
+        output.write('YyP: ' + str(uVy0) + ' = ' + str(YyP) + '\n')
+        output.write('ZyP: ' + str(uVz0) + ' * ' + str(cosTy) + ' - ' + str(uVx0) + ' * ' + str(sinTy) + ' = ' + str(ZyP) + '\n\n')
+
+        output.write('XxP: ' + str(uVx0) + ' = ' + str(XxP) + '\n')
+        output.write('YxP: ' + str(uVy0) + ' * ' + str(cosTx) + ' - ' + str(uVz0) + ' * ' + str(sinTx) + ' = ' + str(YxP) + '\n')
+        output.write('ZxP: ' + str(uVy0) + ' * ' + str(sinTx) + ' + ' + str(uVz0) + ' * ' + str(cosTx) + ' = ' + str(ZxP) + '\n\n')
+
         # combine the final upVector calculations from each vector rotation
-        uVx1 = XzP + XyP + XzP
+        uVx1 = XzP + XyP + XxP
         uVy1 = YzP + YyP + YxP
         uVz1 = ZzP + ZyP + ZxP
+
+        # print final upVector calculations from each vector rotation
+        output.write('uVx1: ' + str(XzP) + ' + ' + str(XyP) + ' + ' + str(XxP) + ' = ' + str(uVx1) + '\n')
+        output.write('uVy1: ' + str(YzP) + ' + ' + str(YyP) + ' + ' + str(YxP) + ' = ' + str(uVy1) + '\n')
+        output.write('uVz1: ' + str(ZzP) + ' + ' + str(ZyP) + ' + ' + str(ZxP) + ' = ' + str(uVz1) + '\n')
 
         # return the final upVector indeces
         return uVx1, uVy1, uVz1
 
     except:
         if ui:
-            ui.messageBox('Failed in algorithm:\n{}'.format(traceback.format_exc()))
+            ui.messageBox('Failed in orbitUpVectorAlgorithm:\n{}'.format(traceback.format_exc()))
+
+# Execute orbitEyeAlgorithm
+#   Inputs:
+#
+#   Outputs:
+#
+#def orbitEyeAlgorithm(ui, target, uVx1, uVy1, uVz1):
+#    try:
+#        Tx = target.x
+#        Ty = target.y
+#        Tz = target.z
+#
+#    except:
+#        if ui:
+#            ui.messageBox('Failed in orbitEyeAlgorithm:\n{}'.format(traceback.format_exc()))
 
 # Execute Pan
 #   Inputs:
