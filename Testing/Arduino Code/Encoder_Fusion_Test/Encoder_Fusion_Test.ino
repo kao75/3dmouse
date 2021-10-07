@@ -1,8 +1,7 @@
 /*
- * Encoder_Test.ino
- * Used for 1st checkoff for ECE 1896: Interface with mechanical trackball and rotary encoders
+ * Encoder_Fusion_Test.ino
  * Created By: Dylan Butler
- * Last Modified: 10/4/2021
+ * Last Modified: 10/6/2021
  */
 
 // Include the SPI library in this sketch
@@ -36,6 +35,7 @@
 
 // Global variables
 int xPrev = 0, yPrev = 0, zPrev = 0;
+char incomingChar = '\0';
 
 
 void setup() {
@@ -53,64 +53,45 @@ void setup() {
 }
 
 void loop() {
+
+    // recieved new command
+    if (Serial.available() > 0) {
+      incomingChar = Serial.read();
+
+      if (incomingChar == 'w') {  // recieved 'w' command
+        // send data request to mouse, get new data
+        sendData();     // send new data
+      }
+    }
+    delay(100);
+}
+
+void sendData(){
     int xPos = 0, yPos = 0, zPos = 0;
-    unsigned long startTime = micros();
     
     if(X_CONNECTED){
         xPos = getData(X_CS_PIN, ANGLECOM_REG);
-        if(xPos == -1){
-            int xErr = getData(X_CS_PIN, ERRFL_REG);
-            Serial.print("X axis SPI error: ");
-            Serial.println(xErr, HEX);
-        }
-        // USED FOR DEBUGGING
-//        Serial.print("X axis position: ");
-//        Serial.println(xPos);
     }
     if(Y_CONNECTED){
         yPos = getData(Y_CS_PIN, ANGLECOM_REG);
-        if(yPos == -1){
-            int yErr = getData(Y_CS_PIN, ERRFL_REG);
-            Serial.print("Y axis SPI error: ");
-            Serial.println(yErr, HEX);
-        }
-        // USED FOR DEBUGGING
-//        Serial.print("Y axis position: ");
-//        Serial.println(yPos);
     }
     if(Z_CONNECTED){
         zPos = getData(Z_CS_PIN, ANGLECOM_REG);
-        if(zPos == -1){
-            int zErr = getData(Z_CS_PIN, ERRFL_REG);
-            Serial.print("Z axis SPI error: ");
-            Serial.println(zErr, HEX);
-        }
-        // USED FOR DEBUGGING
-//        Serial.print("Z axis position: ");
-//        Serial.println(zPos);
     }
-
-    unsigned long endTime = micros();
-    unsigned long elapsedTime = (endTime - startTime);
-//    Serial.print("Elapsed time to read positions: ");
-//    Serial.print(elapsedTime);
-//    Serial.println(" microsecs");
 
     int xRel = calcRelData(xPos, &xPrev);
     int yRel = calcRelData(yPos, &yPrev);
     int zRel = calcRelData(zPos, &zPrev);
-//    Serial.print("(x,y,z): (");
-//    Serial.print(xRel);
-//    Serial.print(", ");
-//    Serial.print(yRel);
-//    Serial.print(", ");
-//    Serial.print(zRel);
-//    Serial.println(")");
 
-    Serial.print(xRel);
-    Serial.print(" ");
-    Serial.println(yRel);
-    delay(8);
+    // send mode\tx\ty\tz\n
+    Serial.print(1, DEC);
+    Serial.print('\t');
+    Serial.print(xRel, DEC);
+    Serial.print('\t');
+    Serial.print(yRel, DEC);
+    Serial.print('\t');
+    Serial.print(zRel, DEC);
+    Serial.print('\n');
 }
 
 int isWrapAround(int val, int valPrev){
