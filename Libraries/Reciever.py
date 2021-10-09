@@ -65,7 +65,7 @@ class Reciever:
             raise RuntimeError('Reciever not found in available COM ports')
         self.timing = timing
         self.streaming = False
-        self.mode = 1
+        self.mode = 0
         self.x = 0
         self.y = 0
         self.z = 0
@@ -97,7 +97,7 @@ class Reciever:
     def fetch_data(self):
         """function to send 'w' request to reciever and in turn fetch new mode, x, y, z data to update the object"""
         self.write_data('w')
-        data = self.reciever.read_until(bytes('\n', 'utf-8')).decode("utf-8")
+        data = self.reciever.readline().decode("utf-8")
         parsed = data.split('\t')
         if len(parsed) == 4:
             try:
@@ -128,32 +128,14 @@ class Reciever:
 
 
 def main():
-    reciever = Reciever(timing=0.01)
-    reciever.start_stream()
+    reciever = Reciever()
 
-    # for i in range(100):
     while True:
-        mode, x, y, z = reciever.read_data()
+        mode, x, y, z = reciever.fetch_data()
         print(mode, x, y, z)
-        time.sleep(.1)
+        time.sleep(0.001)
 
-    reciever.end_stream()
-    print('Ending Stream')
-
-    for i in range(8):
-        mode, x, y, z = reciever.read_data()
-        print(mode, x, y, z)
-        time.sleep(.5)
-
-    reciever.start_stream()
-    print('Starting Stream')
-
-    for i in range(20):
-        mode, x, y, z = reciever.read_data()
-        print(mode, x, y, z)
-        time.sleep(.5)
-
-    reciever.close()
+    # reciever.close()
 
 
 if __name__ == '__main__':
