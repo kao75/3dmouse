@@ -33,7 +33,6 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
 
             eventArgs = json.loads(args.additionalInfo)
             mode = int(eventArgs['mode'])
-
             x = int(eventArgs['x'])
             y = int(eventArgs['y'])
             z = int(eventArgs['z'])
@@ -66,8 +65,14 @@ class MyThread(threading.Thread):
         last_move = -1
         while True:
             mode, x, y, z = reciever.fetch_data()
-            print(mode, x, y, z)
-            if last_move > 10:  # if its been 10 iterations since last move, disable pan
+            if mode == 0:
+                mode_s = 'ORBIT'
+            elif mode == 1:
+                mode_s = 'PAN'
+            elif mode == 2:
+                mode_s = 'ZOOM'
+            print(mode_s + ' | ' + ' x ' + str(x) + '\ty ' + str(y) + '\tz ' + str(z))
+            if last_move > 8:  # if its been 8 iterations since last move, disable pan
                 pyautogui.mouseUp(button='middle')
                 last_move = -1
             if abs(x) < 10:
@@ -79,8 +84,8 @@ class MyThread(threading.Thread):
 
             if x != 0 or y != 0 or z != 0:
                 mx_current, my_current = pyautogui.position()
-                mx_new = mx_current + int(((.71*x) + (-.71*z)) / 3)
-                my_new = my_current + int(((.71*x) + (.71*z) + y) / 3)
+                mx_new = mx_current + int(x / 2.5)
+                my_new = my_current + int(y / 2.5)
                 if last_move == -1:
                     pyautogui.mouseDown(button='middle')
                 last_move = 0
@@ -129,7 +134,9 @@ def run(context):
 
         # create and initialize the message ui
         ui = app.userInterface
-        ui.messageBox('Script Executed!')
+        ui.messageBox('3D Mouse Demo\nAdd-In Enabled')
+
+        print(upVectorOrientation(viewport.camera, ui))
 
         # Register the custom event and connect the handler.
         global customEvent
@@ -160,7 +167,7 @@ def stop(context):
             customEvent.remove(handlers[0])
         stopFlag.set()
         app.unregisterCustomEvent(myCustomEvent)
-        ui.messageBox('3D Mouse Demo Add-In Ended')
+        ui.messageBox('3D Mouse Demo\nAdd-In Stopped')
     except:
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))

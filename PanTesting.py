@@ -6,7 +6,7 @@ reciever = Reciever(timing=0)
 last_move = -1
 while True:
     mode, x, y, z = reciever.fetch_data()
-    if last_move > 10:  # if its been 10 iterations since last move, disable pan
+    if last_move > 8:  # if its been 8 iterations since last move, disable pan
         pyautogui.mouseUp(button='middle')
         last_move = -1
         print('pan disabled')
@@ -14,13 +14,11 @@ while True:
         x = 0
     if abs(y) < 10:
         y = 0
-    if abs(z) < 10:
-        z = 0
 
-    if x != 0 or y != 0 or z != 0:
+    if x != 0 or y != 0:
         mx_current, my_current = pyautogui.position()
-        mx_new = mx_current + int(((.71*x) + (-.71*z)) / 3)
-        my_new = my_current + int(((.71*x) + (.71*z) + y) / 3)
+        mx_new = mx_current + int(x / 2.5)
+        my_new = my_current + int(y / 2.5)
         if last_move == -1:
             pyautogui.mouseDown(button='middle')
             print('pan enabled')
