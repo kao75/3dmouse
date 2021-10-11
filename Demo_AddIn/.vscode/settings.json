@@ -1,0 +1,5 @@
+{
+	"python.autoComplete.extraPaths":	["C:/Users/omara/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"],
+	"python.analysis.extraPaths":	["C:/Users/omara/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs", "C:/Users/omara/PycharmProjects/3dmouse/Libraries"],
+	"python.pythonPath":	"C:/Users/omara/AppData/Local/Autodesk/webdeploy/production/1bc48b96e2e48e9445cd9390dcacb966164222c9/Python/python.exe"
+}
