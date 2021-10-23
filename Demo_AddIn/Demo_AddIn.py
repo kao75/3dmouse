@@ -441,10 +441,13 @@ def zoom(app, x, y):
 
         cam = app.activeViewport.camera
 
-        current_viewExtents = cam.viewExtents
         global sensitivity_object
         zoom_multiplier = sensitivity_object.getZoomMultiplier()
-        cam.viewExtents = ((x+y)*zoom_multiplier) + current_viewExtents
+        current_viewExtents = cam.viewExtents
+        new_viewExtents = ((x+y)*zoom_multiplier) + current_viewExtents
+        if new_viewExtents < .1:
+            new_viewExtents = .1
+        cam.viewExtents = new_viewExtents
 
         cam.isSmoothTransition = False
         cam.isFitView = False
