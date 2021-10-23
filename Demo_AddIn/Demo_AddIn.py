@@ -86,7 +86,7 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
 
         except:
             if ui:
-                ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
+                ui.messageBox('Failed in notify:\n{}'.format(traceback.format_exc()))
 
 
 # The class for the new thread.
@@ -182,7 +182,7 @@ def run(context):
 
     except:
         if ui:
-            ui.messageBox('Run script Failed:\n{}'.format(traceback.format_exc()))
+            ui.messageBox('Failed in Run:\n{}'.format(traceback.format_exc()))
 
 
 def stop(context):
@@ -233,60 +233,273 @@ class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
         settingsOpen = True
 
 
-
-# Execute Orbit
+# Execute orbit
 #   Inputs:
-#       app, viewport, ui, Lx, Ly, Lz
+#       app, viewport, ui, x, y, z
 #   Outputs:
 #       N/A
-#   Assume hardware sends operation mode input as Orbit.
-#   Only changes the direction once, will add hardware input and output with
-#   the addition of that software.
-def orbit(app, viewport, ui, Lx, Ly, Lz):
-    # ui.messageBox('ORBIT | x:' + str(Lx) + ', y:' + str(Ly) + ', z:' + str(Lz))
+# The shell of the orbit algorithm
+def orbit(app, viewport, ui, x, y, z):
     try:
-        print('ORBIT')
+        # set up debugging of screen coordinates
+        #filePath = 'C:\\Users\\mcqkn\\Documents\\Fall_2021\\ECE1896\\Autodesk Output Files'
+        #fileName = '\\Orbit_debug.txt'
+        #output = open(filePath + fileName, 'w')
+        #output.write("This is the Orbit debugging file:\n\n")
+
+        # initialize and create screen vectors
+        uV, eV, sV = screenVectors(ui)
+
+        # initialize the camera, target, and eye variables
+        camera = viewport.camera
+        target = camera.target
+        eye = camera.eye
+
+        # find the distance between the Target and the Eye
+        r = distanceET(viewport, ui)
+
+        # set the relative factor for the thetas
+        f = 90
+
+        # read in the hardware input (debugging use only)
+        #Lx, Ly, Lz = hardwareInput_debug(ui)
+
+        # translate the hardware input to a relative change to an angle
+        Tx = x / 8192 * f
+        Ty = y / 8192 * f
+        Tz = z / 8192 * f
+
+        # run initial debug
+        #output = initial_debug(ui, output, uV, sV, eV, eye, Tx, Ty, Tz, target, r)
+
+        # if the hardware reads a change in z
+        # do not modify eyeVector
+        if(Tz != 0):
+            # create the new upVector with the old sideVector
+            uV = newVector(ui, uV, sV, Tz)
+            uV.normalize()
+
+            # re-assign the sideVector in accordance with the new upVector
+            sV = uV.crossProduct(eV)
+            sV.normalize()
+
+            # debug notes
+            #output = function_debug(ui, output, uV, sV, eV, eye, 'New upVector:')
+
+        # if the hardware reads a change in x
+        # do not modify upVector
+        if(Tx != 0):
+            # create the new sideVector with the old eyeVector
+            sV = newVector(ui, sV, eV, Tx)
+            sV.normalize()
+
+            # re-assign the eyeVector in accordance with the new sideVector
+            eV = sV.crossProduct(uV)
+            eV.normalize()
+
+            # re-assign the eye in accordance with the new eyeVector
+            # find the end of the eyeVector, multiply that point by the radius, and move it in line with the target point
+            eye = eV.asPoint()
+            eye = adsk.core.Point3D.create(eye.x * r + target.x, eye.y * r + target.y, eye.z * r + target.z)
+
+            # debug notes
+            #output = function_debug(ui, output, uV, sV, eV, eye, 'New sideVector:')
+
+        # if the hardware reads a change in y
+        # do not modify sideVector
+        if(Ty != 0):
+            # create the new eyeVector with the old upVector
+            eV = newVector(ui, eV, uV, Ty)
+            eV.normalize()
+
+            # re-assign the upVector in accordance with the new eyeVector
+            uV = eV.crossProduct(sV)
+            uV.normalize()
+
+            # re-assign the eye in accordance with the new eyeVector
+            # find the end of the eyeVector, multiply that point by the radius, and move it in line with the target point
+            eye = eV.asPoint()
+            eye = adsk.core.Point3D.create(eye.x * r + target.x, eye.y * r + target.y, eye.z * r + target.z)
+
+            # debug notes
+            #output = function_debug(ui, output, uV, sV, eV, eye, 'New eyeVector:')
+
+        # re-assign changed Fusion360 variables to their camera parameters
+        camera.eye = eye
+        camera.upVector = uV
+        viewport.camera = camera
+
+        # make the changes in Fusion 360
+        adsk.doEvents()
+        viewport.refresh()
+
+        # close debug file
+        #output.close()
+
     except:
         if ui:
-            ui.messageBox('Failed in orbit:\n{}'.format(traceback.format_exc()))
+            ui.messageBox('Failed in rotate:\n{}'.format(traceback.format_exc()))
 
-
-# Debug
-def debug(ui, uVx0, uVy0, uVz0, uVx1, uVy1, uVz1):
-    try:
-        filePath = 'C:\\Users\\mcqkn\\Documents\\Fall_2021\\ECE1896\\Autodesk Output Files'
-        fileName = '\\IO_Debug.txt'
-
-        output = open(filePath + fileName, 'w')
-        output.write("Debugging notes for IO in Algorithms.py\n\n")
-
-        output.write('uVx0 = ' + str(uVx0) + '\n')
-        output.write('uVy0 = ' + str(uVy0) + '\n')
-        output.write('uVz0 = ' + str(uVz0) + '\n\n')
-
-        output.write('uVx1 = ' + str(uVx1) + '\n')
-        output.write('uVy1 = ' + str(uVy1) + '\n')
-        output.write('uVz1 = ' + str(uVz1) + '\n')
-
-    except:
-        if ui:
-            ui.messageBox('Failed in Debug:\n{}'.format(traceback.format_exc()))
-
-
-# Execute upVectorOrientation
+# Execute newVector
 #   Inputs:
-#       camera, ui
+#       ui, uV, sV, T
 #   Outputs:
-#       uVx0, uVy0, uVz0
-#   Read the current orientation of the upVector from Fusion 360
-def upVectorOrientation(camera, ui):
+#       [Vector3D]
+# create a new Vector from the angle generated from the hardware
+def newVector(ui, Va, Vb, T):
     try:
-        return camera.upVector.x, camera.upVector.y, camera.upVector.z
+        # create the components of the new Vector3D
+        # if the angle is positive, use the positive projection of the horizontal Vector
+        # if the angle is negative, use the negative projection of the horizontal Vector
+        if(T > 0):
+            mag_a = (math.pow((math.pow((Va.x), 2) + math.pow((Va.y), 2) + math.pow((Va.z), 2)), .5) / math.pow((math.pow((Vb.x), 2) + math.pow((Vb.y), 2) + math.pow((Vb.z), 2)), .5)) * math.cos(math.radians(90 - abs(T)))
+            mag_b = math.cos(math.radians(90 - abs(T)))
+        else:
+            mag_a = -(math.pow((math.pow((Va.x), 2) + math.pow((Va.y), 2) + math.pow((Va.z), 2)), .5) / math.pow((math.pow((Vb.x), 2) + math.pow((Vb.y), 2) + math.pow((Vb.z), 2)), .5)) * math.cos(math.radians(90 - abs(T)))
+            mag_b = math.cos(math.radians(90 - abs(T)))
+
+        # create the vector components of the new Vector3D in terms of Va and Vb
+        a = adsk.core.Vector3D.create(mag_a * Vb.x, mag_a * Vb.y, mag_a * Vb.z)
+        b = adsk.core.Vector3D.create(mag_b * Va.x, mag_b * Va.y, mag_b * Va.z)
+
+        # return the new vector
+        return adsk.core.Vector3D.create(a.x + b.x, a.y + b.y, a.z + b.z)
 
     except:
         if ui:
-            ui.messageBox('Failed in upVectorOrientation:\n{}'.format(traceback.format_exc()))
+            ui.messageBox('Failed in newUpVector:\n{}'.format(traceback.format_exc()))
 
+# Execute screenVectors
+#   Inputs:
+#       ui, camera
+#   Outputs:
+#       uV, eV, sV
+# Initialize the screen coordinate system used for vector rotations
+def screenVectors(ui, camera):
+    try:
+        # assign local camera variables
+        eye = camera.eye
+        target = camera.target
+
+        # initialize upVector
+        # since Fusion360 incorrectly initializes the upVector, hardcode in the correct dimensions
+        uV = adsk.core.Vector3D.create(-0.4081498184182195, 0.8164965730110046, -0.4083467545927849)
+        uV.normalize()
+
+        # create eyeVector
+        eV = target.vectorTo(eye)
+        eV.normalize()
+
+        # create sideVector
+        sV = uV.crossProduct(eV)
+        sV.normalize()
+
+        return uV, eV, sV
+
+    except:
+        if ui:
+            ui.messageBox('Failed in screenVectors:\n{}'.format(traceback.format_exc()))
+
+# Execute distanceET
+#   Inputs:
+#       app, viewport
+#   Outputs:
+#       Rf
+# Find the distance between the camera eye and target
+def distanceET(viewport, ui):
+    try:
+        # distance formula between the camera target and eye
+        return pow(pow(viewport.camera.eye.x - viewport.camera.target.x, 2) + pow(viewport.camera.eye.y - viewport.camera.target.y, 2) + pow(viewport.camera.eye.z - viewport.camera.target.z, 2), .5)
+
+    except:
+        if ui:
+            ui.messageBox('Failed in distanceET:\n{}'.format(traceback.format_exc()))
+
+# Execute function_debug
+#   Inputs:
+#       ui, output, uV, sV, eV, E, title
+#   Outputs:
+#       output
+# Write variables to an output file to help debugging
+def function_debug(ui, output, uV, sV, eV, E, title):
+    try:
+        # write the title of this event to output
+        output.write("---------------------------------\n")
+        output.write(title + "\n\n")
+
+        # write the upVector to output
+        output.write("upVector.x = " + str(uV.x) + "\n")
+        output.write("upVector.y = " + str(uV.y) + "\n")
+        output.write("upVector.z = " + str(uV.z) + "\n\n")
+
+        # write the sideVector to output
+        output.write("sideVector.x = " + str(sV.x) + "\n")
+        output.write("sideVector.y = " + str(sV.y) + "\n")
+        output.write("sideVector.z = " + str(sV.z) + "\n\n")
+
+        # write the eyeVector to output
+        output.write("eyeVector.x = " + str(eV.x) + "\n")
+        output.write("eyeVector.y = " + str(eV.y) + "\n")
+        output.write("eyeVector.z = " + str(eV.z) + "\n\n")
+
+        # write the eye to output
+        output.write("Eye.x = " + str(E.x) + "\n")
+        output.write("Eye.y = " + str(E.y) + "\n")
+        output.write("Eye.z = " + str(E.z) + "\n\n")
+
+        return output
+    except: 
+        if ui:
+            ui.messageBox('Failed in function_debug:\n{}'.format(traceback.format_exc()))
+
+# Execute initial_debug
+#   Inputs:
+#
+#   Outputs:
+#
+# Write variables to an output file before any computations are made
+def initial_debug(ui, output, uV, sV, eV, E, Tx, Ty, Tz, t, r):
+    try:
+        output.write("Initialized Variables:\n")
+
+        # write the hardware inputted thetas to output
+        output.write("Tx = " + str(Tx) + "\n")
+        output.write("Ty = " + str(Ty) + "\n")
+        output.write("Tz = " + str(Tz) + "\n\n")
+
+        # write the camera target to output
+        output.write("target.x = " + str(t.x) + "\n")
+        output.write("target.y = " + str(t.y) + "\n")
+        output.write("target.z = " + str(t.z) + "\n\n")
+
+        # write the camera eye to output
+        output.write("eye.x = " + str(E.x) + "\n")
+        output.write("eye.y = " + str(E.y) + "\n")
+        output.write("eye.z = " + str(E.z) + "\n\n")
+
+        # write the radius to output
+        output.write("radius = " + str(r) + "\n\n")
+
+        # write the upVector to output
+        output.write("upVector.x = " + str(uV.x) + "\n")
+        output.write("upVector.y = " + str(uV.y) + "\n")
+        output.write("upVector.z = " + str(uV.z) + "\n\n")
+
+        # write the sideVector to output
+        output.write("sideVector.x = " + str(sV.x) + "\n")
+        output.write("sideVector.y = " + str(sV.y) + "\n")
+        output.write("sideVector.z = " + str(sV.z) + "\n\n")
+
+        # write the eyeVector to output
+        output.write("eyeVector.x = " + str(eV.x) + "\n")
+        output.write("eyeVector.y = " + str(eV.y) + "\n")
+        output.write("eyeVector.z = " + str(eV.z) + "\n\n")
+
+        return output
+
+    except:
+        if ui:
+            ui.messageBox('Failed in initial_debug:\n{}'.format(traceback.format_exc()))
 
 # Execute hardwareInput
 #   Inputs:
@@ -294,88 +507,25 @@ def upVectorOrientation(camera, ui):
 #   Outputs:
 #       Lx, Ly, Lz, mode
 #   Read in change in direction and mode inputs from hardware.
-#   For testing purposes, just input three integers as the change in arc
-#   length on the cue ball, and keep the mode of operation at 0 for orbit.
-def hardwareInput(ui):
+#   For testing purposes, just input three integers as the change in
+#   direction inputs, and keep mode at 0 for orbit
+def hardwareInput_debug(ui):
     try:
-        Lx = 1  # arc length relative to the x direction
-        Ly = 1  # arc length relative to the y direction
-        Lz = 1  # arc length relative to the z direction
-        mode = 0  # mode of operation
+        # input from x rotary [-8192, 8192]
+        Lx = 0
 
-        # return the read in directional values
-        return Lx, Ly, Lz, mode
+        # input from y rotary [-8192, 8192]
+        Ly = 0
+
+        # input from z rotary [-8192, 8192]
+        Lz = 0
+
+        # return the inputted values
+        return Lx, Ly, Lz
 
     except:
         if ui:
-            ui.messageBox('Failed in input:\n{}'.format(traceback.format_exc()))
-
-
-# Execute Orbit's Mathematical Algorithm
-#   Inputs:
-#       ui, Lx0, Ly0, Lz0, uVx0, uVy0, uVz0
-#   Outputs:
-#       uVx1, uVy1, uVz1
-# Run through the Orbit algorithm described in the Conceptual Design Document.
-# Not optimized for memory
-def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
-    try:
-        filePath = 'C:\\Users\\mcqkn\\Documents\\Fall_2021\\ECE1896\\Autodesk Output Files'
-        fileName = '\\Algorithm_Debug.txt'
-
-        output = open(filePath + fileName, 'w')
-        output.write("Debugging notes for orbitAlgorithm in Algorithms.py\n\n")
-
-        pi = math.pi  # initialize pi locally
-        Rc = 3  # radius of the cue ball in ***some units***
-        piRc = pi * Rc
-
-        # calculate thetas
-        Tx = (180 * Lx) / piRc  # change in angle relative to x in the Lx arc length
-        Ty = (180 * Ly) / piRc  # change in angle relative to y in the Ly arc length
-        Tz = (180 * Lz) / piRc  # change in angle relative to z in the Lz arc length
-
-        # print thetas
-        output.write('Tx = ' + str(Tx) + '\n')
-        output.write('Ty = ' + str(Ty) + '\n')
-        output.write('Tz = ' + str(Tz) + '\n')
-
-        # calculate trig functions in advance to save computation time
-        cosTz = math.cos(math.radians(Tz))
-        sinTz = math.sin(math.radians(Tz))
-        cosTy = math.cos(math.radians(Ty))
-        sinTy = math.sin(math.radians(Ty))
-        cosTx = math.cos(math.radians(Tx))
-        sinTx = math.sin(math.radians(Tx))
-
-        # calculate vector rotations around each axis
-        # z-axis
-        XzP = uVx0 * cosTz - uVy0 * sinTz
-        YzP = uVx0 * sinTz + uVy0 * cosTz
-        ZzP = uVz0
-
-        # y-axis
-        XyP = uVx0 * cosTy + uVz0 * sinTy
-        YyP = uVy0
-        ZyP = uVz0 * cosTy - uVx0 * sinTy
-
-        # x-axis
-        XxP = uVx0
-        YxP = uVy0 * cosTx - uVz0 * sinTx
-        ZxP = uVy0 * sinTx + uVz0 * cosTx
-
-        # combine the final upVector calculations from each vector rotation
-        uVx1 = XzP + XyP + XzP
-        uVy1 = YzP + YyP + YxP
-        uVz1 = ZzP + ZyP + ZxP
-
-        # return the final upVector indeces
-        return uVx1, uVy1, uVz1
-
-    except:
-        if ui:
-            ui.messageBox('Failed in algorithm:\n{}'.format(traceback.format_exc()))
-
+            ui.messageBox('Failed in hardwareInput:\n{}'.format(traceback.format_exc()))
 
 # Execute Pan
 #   Inputs:
