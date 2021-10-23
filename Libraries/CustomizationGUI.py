@@ -4,21 +4,26 @@ import tkinter as tk
 import time
 
 
-class TestingSensitivityObject:
+class SensitivityObject:
     def __init__(self):
-        self.x = 10
-        self.y = 20
-        self.z = 30
+        self.orbitSensitivity = 70
+        self.panSensitivity = .0075  # inches per degree
+        self.zoomSensitivity = 70
 
-    def displayvalues(self):
-        print('\n\n', self.x, self.y, self.z, '\n\n')
+    def update(self, neworbit, newpan, newzoom):
+        self.orbitSensitivity = neworbit
+        self.panSensitivity = newpan
+        self.zoomSensitivity = newzoom
+        print('\n\nINSIDE OF UPDATE\n\n')
 
-    def updatevalues(self, x, y, z):
-        print('\ninupdate values')
-        print(x, y, z)
-        self.x = x
-        self.y = y
-        self.z = z
+    def getOrbitSensitivity(self):
+        return self.orbitSensitivity
+
+    def getPanSensitivity(self):
+        return self.panSensitivity
+
+    def getZoomSensitivity(self):
+        return self.zoomSensitivity
 
 
 class CustomizationGUI:
@@ -90,8 +95,8 @@ class CustomizationGUI:
         ttk.Label(mainframe, text="Zoom Sensitivity:").grid(column=1, row=3, sticky=E)
         zoom_slider = ttk.Scale(
             mainframe,
-            from_=50,
-            to=300,
+            from_=.01,
+            to=.3,
             orient='horizontal',
             command=self.zoom_slider_changed,
             variable=self.zoom_sensitivity
@@ -129,9 +134,6 @@ class CustomizationGUI:
 
     def apply(self):
         self.sensitivity_object.update(self.orbit_sensitivity.get(), self.pan_sensitivity.get(), self.zoom_sensitivity.get())
-        print('in apply')
-        # orbit_s, pan_s, zoom_s = self.get_sensitivities()
-        #self.sensObject.update(orbit_s, pan_s, zoom_s)
 
     def get_current_orbit(self):
         return '{: .2f} mm per rotation'.format(self.orbit_sensitivity.get())
@@ -153,7 +155,7 @@ class CustomizationGUI:
 
 
 def main():
-    ts = TestingSensitivityObject()
+    ts = SensitivityObject()
     gui = CustomizationGUI(ts.updatevalues)
     print('1')
     time.sleep(4)

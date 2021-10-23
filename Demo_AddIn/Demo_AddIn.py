@@ -18,21 +18,21 @@ stopFlag = None
 updateCameraEventID = 'UpdateCameraEventID'
 updateCameraEvent = None
 tbPanel = None
+sensitivity_object = None
 settingsOpen = False
 
 
-class SensitivityObject():
+class SensitivityObject:
 
     def __init__(self):
         self.orbitSensitivity = 70
         self.panSensitivity = .0075 # inches per degree
-        self.zoomSensitivity = 70
+        self.zoomSensitivity = .125
     
     def update(self, neworbit, newpan, newzoom):
         self.orbitSensitivity = neworbit
         self.panSensitivity = newpan
         self.zoomSensitivity = newzoom
-        print('\n\nINSIDE OF UPDATE\n\n')
     
     def getOrbitSensitivity(self):
         return self.orbitSensitivity
@@ -54,9 +54,6 @@ class SensitivityObject():
         return self.zoomSensitivity
 
 
-sensitivity_object = SensitivityObject()
-
-
 # The event handler that responds to the custom event being fired.
 class ThreadEventHandler(adsk.core.CustomEventHandler):
     def __init__(self):
@@ -74,15 +71,15 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
             y = int(eventArgs['y'])
             z = int(eventArgs['z'])
 
-            if mode == 10:
+            if mode == 0:
                 # execute Orbit
                 orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
-            elif mode == 0 or mode == 1:
+            elif mode == 1:
                 # execute Pan
-                pan(adsk.core.Application.get(), x, y, z)
+                pan(adsk.core.Application.get(), x, y)
             elif mode == 2:
                 # execute Zoom
-                zoom(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
+                zoom(adsk.core.Application.get(), x, y)
             else:
                 # error, default to Orbit
                 orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
@@ -108,8 +105,8 @@ class WorkerThread(threading.Thread):
             if abs(z) < 25:
                 z = 0
 
-            print(mode, x, y, z)
             if  x != 0 or y != 0 or z != 0:
+                print('reciever', mode, x, y, z)
                 args = {'mode': mode,'x': x, 'y': y, 'z': z}
                 app.fireCustomEvent(updateCameraEventID, json.dumps(args))
             time.sleep(.01)
@@ -141,6 +138,10 @@ def run(context):
         # create and initialize the message ui
         ui = app.userInterface
         ui.messageBox('3D Mouse Demo\nAdd-In Enabled')
+
+        # initialize sensitivity object
+        global sensitivity_object
+        sensitivity_object = SensitivityObject()
 
         # Get the CommandDefinitions collection.
         cmdDefs = ui.commandDefinitions
@@ -382,7 +383,7 @@ def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
 #   Outputs:
 #       N/A
 # Placeholder function for now
-def pan(app, x, y, z):
+def pan(app, x, y):
     try:
         print('PAN')
 
@@ -434,9 +435,23 @@ def pan(app, x, y, z):
 #   Outputs:
 #       N/A
 # Plceholder function for now
-def zoom(app, viewport, ui, x, y, z):
+def zoom(app, x, y):
     try:
         print('ZOOM')
+
+        cam = app.activeViewport.camera
+
+        current_viewExtents = cam.viewExtents
+        global sensitivity_object
+        zoom_multiplier = sensitivity_object.getZoomMultiplier()
+        cam.viewExtents = ((x+y)*zoom_multiplier) + current_viewExtents
+
+        cam.isSmoothTransition = False
+        cam.isFitView = False
+
+        app.activeViewport.camera = cam
+        adsk.doEvents()
+        app.activeViewport.refresh()
     except:
         if ui:
             ui.messageBox('Failed in Zoom:\n{}'.format(traceback.format_exec()))
