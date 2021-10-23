@@ -1,16 +1,11 @@
 /*
  * Encoder_Fusion_Test.ino
  * Created By: Dylan Butler
- * Last Modified: 10/6/2021
+ * Last Modified: 10/22/2021
  */
 
 // Include the SPI library in this sketch
 #include <SPI.h>
-
-// Define global constants
-#define X_CONNECTED 1
-#define Y_CONNECTED 1
-#define Z_CONNECTED 1
 
 // Pin definitions
 #define X_CS_PIN 10
@@ -63,25 +58,38 @@ void loop() {
         sendData();     // send new data
       }
     }
-    delay(100);
 }
 
 void sendData(){
-    int xPos = 0, yPos = 0, zPos = 0;
+    // USED FOR DEBUGGING
+//    unsigned long startTime = micros();
     
-    if(X_CONNECTED){
-        xPos = getData(X_CS_PIN, ANGLECOM_REG);
-    }
-    if(Y_CONNECTED){
-        yPos = getData(Y_CS_PIN, ANGLECOM_REG);
-    }
-    if(Z_CONNECTED){
-        zPos = getData(Z_CS_PIN, ANGLECOM_REG);
-    }
+    int xPos = getData(X_CS_PIN, ANGLECOM_REG);
+    int yPos = getData(Y_CS_PIN, ANGLECOM_REG);
+    int zPos = getData(Z_CS_PIN, ANGLECOM_REG);
 
-    int xRel = calcRelData(xPos, &xPrev);
-    int yRel = calcRelData(yPos, &yPrev);
-    int zRel = calcRelData(zPos, &zPrev);
+    int xRel, yRel, zRel;
+    if(xPos == -1){
+        getData(X_CS_PIN, ERRFL_REG);
+        xRel = 0;
+    }
+    else{
+        xRel = calcRelData(xPos, &xPrev);
+    }
+    if(yPos == -1){
+        getData(Y_CS_PIN, ERRFL_REG);
+        yRel = 0;
+    }
+    else{
+        yRel = calcRelData(yPos, &yPrev);
+    }
+    if(zPos == -1){
+        getData(Z_CS_PIN, ERRFL_REG);
+        zRel = 0;
+    }
+    else{
+        zRel = calcRelData(zPos, &zPrev);
+    }
 
     // send mode\tx\ty\tz\n
     Serial.print(1, DEC);
@@ -92,6 +100,13 @@ void sendData(){
     Serial.print('\t');
     Serial.print(zRel, DEC);
     Serial.print('\n');
+
+    // USED FOR DEBUGGING
+//    unsigned long endTime = micros();
+//    unsigned long elapsedTime = (endTime - startTime);
+//    Serial.print("Elapsed time to read positions: ");
+//    Serial.print(elapsedTime);
+//    Serial.println(" microsecs");
 }
 
 int isWrapAround(int val, int valPrev){
