@@ -7,8 +7,7 @@ sys.path.append('C://Users//omara//PycharmProjects//3dmouse//Libraries')
 import serial
 import serial.tools.list_ports
 from Reciever import Reciever
-
-import pyautogui
+from CustomizationGUI import CustomizationGUI
 
 reciever = Reciever(timing=0)
 
@@ -16,8 +15,46 @@ app = None
 ui = adsk.core.UserInterface.cast(None)
 handlers = []
 stopFlag = None
-myCustomEvent = 'MyCustomEventId'
-customEvent = None
+updateCameraEventID = 'UpdateCameraEventID'
+updateCameraEvent = None
+tbPanel = None
+settingsOpen = False
+
+
+class SensitivityObject():
+
+    def __init__(self):
+        self.orbitSensitivity = 70
+        self.panSensitivity = .0075 # inches per degree
+        self.zoomSensitivity = 70
+    
+    def update(self, neworbit, newpan, newzoom):
+        self.orbitSensitivity = neworbit
+        self.panSensitivity = newpan
+        self.zoomSensitivity = newzoom
+        print('\n\nINSIDE OF UPDATE\n\n')
+    
+    def getOrbitSensitivity(self):
+        return self.orbitSensitivity
+
+    def getOrbitMultiplier(self):
+        return self.getOrbitSensitivity
+    
+    def getPanSensitivity(self):
+        return self.panSensitivity
+    
+    def getPanMultiplier(self):
+        return 25 * .0247 * self.panSensitivity
+        # return .0247 * self.panSensitivity
+    
+    def getZoomSensitivity(self):
+        return self.zoomSensitivity
+
+    def getZoomMultiplier(self):
+        return self.zoomSensitivity
+
+
+sensitivity_object = SensitivityObject()
 
 
 # The event handler that responds to the custom event being fired.
@@ -37,12 +74,12 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
             y = int(eventArgs['y'])
             z = int(eventArgs['z'])
 
-            if mode == 0:
+            if mode == 10:
                 # execute Orbit
                 orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
-            elif mode == 1:
+            elif mode == 0 or mode == 1:
                 # execute Pan
-                pan(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
+                pan(adsk.core.Application.get(), x, y, z)
             elif mode == 2:
                 # execute Zoom
                 zoom(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
@@ -56,68 +93,41 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
 
 
 # The class for the new thread.
-class MyThread(threading.Thread):
+class WorkerThread(threading.Thread):
     def __init__(self, event):
         threading.Thread.__init__(self)
         self.stopped = event
 
     def run(self):
-        last_move = -1
         while True:
             mode, x, y, z = reciever.fetch_data()
-            if mode == 0:
-                mode_s = 'ORBIT'
-            elif mode == 1:
-                mode_s = 'PAN'
-            elif mode == 2:
-                mode_s = 'ZOOM'
-            print(mode_s + ' | ' + ' x ' + str(x) + '\ty ' + str(y) + '\tz ' + str(z))
-            if last_move > 8:  # if its been 8 iterations since last move, disable pan
-                pyautogui.mouseUp(button='middle')
-                last_move = -1
-            if abs(x) < 10:
+            if abs(x) < 25:
                 x = 0
-            if abs(y) < 10:
+            if abs(y) < 25:
                 y = 0
-            if abs(z) < 10:
+            if abs(z) < 25:
                 z = 0
 
-            if x != 0 or y != 0 or z != 0:
-                mx_current, my_current = pyautogui.position()
-                mx_new = mx_current + int(x / 2.5)
-                my_new = my_current + int(y / 2.5)
-                if last_move == -1:
-                    pyautogui.mouseDown(button='middle')
-                last_move = 0
-                pyautogui.moveTo(x=mx_new, y=my_new)
-            elif last_move != -1:
-                last_move = last_move + 1
+            print(mode, x, y, z)
+            if  x != 0 or y != 0 or z != 0:
+                args = {'mode': mode,'x': x, 'y': y, 'z': z}
+                app.fireCustomEvent(updateCameraEventID, json.dumps(args))
+            time.sleep(.01)
 
-        # lastUpdated = 0
-        # lastMode = 0
-        # x_acc = 0
-        # y_acc = 0
-        # z_acc = 0
-        # while True:
-        #     mode, x, y, z = reciever.fetch_data()
-        #     print(mode, x, y, z)
-        #     if abs(x) > 9:
-        #         x_acc = x_acc + x
-        #     if abs(y) > 9:
-        #         y_acc = y_acc + y
-        #     if abs(z) > 9:
-        #         z_acc = z_acc + z
+# The class for the gui settings thread.
+class SettingsThread(threading.Thread):
+    def __init__(self, event):
+        threading.Thread.__init__(self)
+        self.stopped = event
 
-        #     if abs(x_acc) > 30 or abs(y_acc) > 30 or abs(z_acc) > 30 or lastUpdated > 25 or lastMode != mode:
-        #         args = {'mode': lastMode,'x': x_acc, 'y': y_acc, 'z': z_acc}
-        #         app.fireCustomEvent(myCustomEvent, json.dumps(args))
-        #         lastMode = mode
-        #         x_acc = 0
-        #         y_acc = 0
-        #         z_acc = 0
-        #         lastUpdated = 0
-
-        #     lastUpdated = lastUpdated + 1
+    def run(self):
+        global sensitivity_object, settingsOpen
+        while True:
+            if settingsOpen:
+                gui = CustomizationGUI(sensitivity_object)
+                settingsOpen = False
+            else:
+                time.sleep(.75)
 
 
 def run(context):
@@ -127,33 +137,47 @@ def run(context):
     try:
         # create and initialize the application, viewport, and camera objects
         app = adsk.core.Application.get()
-        viewport = app.activeViewport
-
-        # initialize the camera smooth trnsition parameter to True
-        viewport.camera.isSmoothTransition = True
 
         # create and initialize the message ui
         ui = app.userInterface
         ui.messageBox('3D Mouse Demo\nAdd-In Enabled')
 
-        print(upVectorOrientation(viewport.camera, ui))
+        # Get the CommandDefinitions collection.
+        cmdDefs = ui.commandDefinitions
+        # Create a button command definition.
+        buttonSample = cmdDefs.addButtonDefinition('3DMouseButtonID', 
+                                                   '3D Mouse Settings', 
+                                                   'Settings for 3D Mouse')
+        # Connect to the command created event.
+        mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
+        buttonSample.commandCreated.add(mouseSettingsCommandCreated)
+        handlers.append(mouseSettingsCommandCreated)
+        # Get the ADD-INS panel in the model workspace. 
+        addInsPanel = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
+        # Add the button to the bottom of the panel.
+        buttonControl = addInsPanel.controls.addCommand(buttonSample)
+
 
         # Register the custom event and connect the handler.
-        global customEvent
+        global updateCameraEvent
         try:
-            app.unregisterCustomEvent(myCustomEvent)
+            app.unregisterCustomEvent(updateCameraEventID)
         except:
             pass
-        customEvent = app.registerCustomEvent(myCustomEvent)
+        updateCameraEvent = app.registerCustomEvent(updateCameraEventID)
         onThreadEvent = ThreadEventHandler()
-        customEvent.add(onThreadEvent)
+        updateCameraEvent.add(onThreadEvent)
         handlers.append(onThreadEvent)
 
         # Create a new thread for the other processing.
         global stopFlag
         stopFlag = threading.Event()
-        myThread = MyThread(stopFlag)
-        myThread.start()
+        workerThread = WorkerThread(stopFlag)
+        workerThread.start()
+
+        # Create thread for Settings GUI
+        settingsThread = SettingsThread(stopFlag)
+        settingsThread.start()
 
     except:
         if ui:
@@ -163,14 +187,50 @@ def run(context):
 def stop(context):
     try:
         reciever.close()
+
         if handlers.count:
-            customEvent.remove(handlers[0])
+            updateCameraEvent.remove(handlers[1])
         stopFlag.set()
-        app.unregisterCustomEvent(myCustomEvent)
+        app.unregisterCustomEvent(updateCameraEventID)
+
+        addinsPanel = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
+        mouseButton = addinsPanel.controls.itemById('3DMouseButtonID')       
+        if mouseButton:
+            mouseButton.deleteMe()
+        cmdDef = ui.commandDefinitions.itemById('3DMouseButtonID')
+        if cmdDef:
+            cmdDef.deleteMe()
+        
         ui.messageBox('3D Mouse Demo\nAdd-In Stopped')
     except:
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
+
+
+
+# Event handler for the commandCreated event.
+class MouseSettingsCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
+    def __init__(self):
+        super().__init__()
+    def notify(self, args):
+        eventArgs = adsk.core.CommandCreatedEventArgs.cast(args)
+        cmd = eventArgs.command
+
+        # Connect to the execute event.
+        onExecute = MouseSettingsCommandExecuteHandler()
+        cmd.execute.add(onExecute)
+        handlers.append(onExecute)
+
+
+# Event handler for the execute event.
+class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
+    def __init__(self):
+        super().__init__()
+    def notify(self, args):
+        eventArgs = adsk.core.CommandEventArgs.cast(args)
+        global settingsOpen
+        settingsOpen = True
+
 
 
 # Execute Orbit
@@ -318,28 +378,48 @@ def orbitAlgorithm(ui, Lx, Ly, Lz, uVx0, uVy0, uVz0):
 
 # Execute Pan
 #   Inputs:
-#       ui
+#       app
 #   Outputs:
 #       N/A
 # Placeholder function for now
-def pan(app, viewport, ui, x, y, z):
+def pan(app, x, y, z):
     try:
         print('PAN')
 
         cam = app.activeViewport.camera
 
-        current_eye = cam.eye.asArray()
-        current_target = cam.target.asArray()
+        current_eye = cam.eye
+        current_target = cam.target
 
-        new_eye = adsk.core.Point3D.create(current_eye[0] + x / 200.0, current_eye[1] + y / 200.0,
-                                           current_eye[2] + z / 200.0)
-        new_target = adsk.core.Point3D.create(current_target[0] + x / 200.0, current_target[1] + y / 200.0,
-                                              current_target[2] + z / 200.0)
+        upVector = cam.upVector
+        eye_target_vector = current_target.vectorTo(current_eye)
+        sideVector = eye_target_vector.crossProduct(upVector)
+        sideVector.normalize()
+
+        # print('up:', upVector.x, upVector.y, upVector.z)
+        # print('side:', sideVector.x, sideVector.y, sideVector.z)
+
+        global sensitivity_object
+        pan_multiplier = sensitivity_object.getPanMultiplier()
+        xChange = ((abs(upVector.x / 1.0) * y) + ((sideVector.x / 1.0) * x)) * pan_multiplier
+        yChange = ((abs(upVector.y / 1.0) * y) + ((sideVector.y / 1.0) * x)) * pan_multiplier
+        zChange = ((abs(upVector.z / 1.0) * y) + ((sideVector.z / 1.0) * x)) * pan_multiplier
+
+        # .0081 inches/degree = change/5000 = change*.0002
+        # .0247 * sens
+
+        new_eye = adsk.core.Point3D.create(current_eye.x + xChange, current_eye.y + yChange, current_eye.z + zChange)
+        new_target = adsk.core.Point3D.create(current_target.x + xChange, current_target.y + yChange, current_target.z + zChange)
+
+        current_eye = new_eye
+        current_target = new_target
 
         cam.eye = new_eye
         cam.target = new_target
-        app.activeViewport.camera = cam
 
+        cam.isSmoothTransition = False
+
+        app.activeViewport.camera = cam
         adsk.doEvents()
         app.activeViewport.refresh()
 

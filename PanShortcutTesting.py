@@ -6,7 +6,7 @@ reciever = Reciever(timing=0)
 last_move = -1
 while True:
     mode, x, y, z = reciever.fetch_data()
-    if last_move > 8:  # if its been 8 iterations since last move, disable pan
+    if last_move > 3:  # if its been 3 iterations since last move, disable pan
         pyautogui.mouseUp(button='middle')
         last_move = -1
         print('pan disabled')
