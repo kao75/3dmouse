@@ -6,9 +6,9 @@ import time
 
 class SensitivityObject:
     def __init__(self):
-        self.orbitSensitivity = 70
+        self.orbitSensitivity = 1
         self.panSensitivity = .0075  # inches per degree
-        self.zoomSensitivity = .125
+        self.zoomSensitivity = .00125
 
     def update(self, neworbit, newpan, newzoom):
         self.orbitSensitivity = neworbit
@@ -38,22 +38,26 @@ class CustomizationGUI:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
-        ttk.Button(mainframe, text="Apply", command=self.apply).grid(column=8, row=6, sticky=W)
+        ttk.Button(mainframe, text="Cancel", command=self.root.destroy).grid(column=5, row=6, sticky=W)
+        ttk.Button(mainframe, text="Apply", command=self.apply).grid(column=6, row=6, sticky=W)
+
+        # self.inverted = tk.BooleanVar()
+        # Checkbutton(mainframe, text="Inverted", variable=self.inverted).grid(column=1, row=4, sticky='WE')
 
         self.orbit_sensitivity = tk.DoubleVar()
         self.orbit_sensitivity.set(self.sensitivity_object.getOrbitSensitivity())
         ttk.Label(mainframe, text="Orbit Sensitivity:").grid(column=1, row=1, sticky=E)
         orbit_slider = ttk.Scale(
             mainframe,
-            from_=50,
-            to=300,
+            from_=.25,
+            to=3,
             orient='horizontal',
             command=self.orbit_slider_changed,
             variable=self.orbit_sensitivity
         ).grid(
             column=3,
             row=1,
-            sticky='we'
+            sticky='e'
         )
         self.orbit_value_label = ttk.Label(
             mainframe,
@@ -78,7 +82,7 @@ class CustomizationGUI:
         ).grid(
             column=3,
             row=2,
-            sticky='we'
+            sticky='e'
         )
         self.pan_value_label = ttk.Label(
             mainframe,
@@ -95,15 +99,15 @@ class CustomizationGUI:
         ttk.Label(mainframe, text="Zoom Sensitivity:").grid(column=1, row=3, sticky=E)
         zoom_slider = ttk.Scale(
             mainframe,
-            from_=.1,
-            to=.5,
+            from_=.001,
+            to=.003,
             orient='horizontal',
             command=self.zoom_slider_changed,
             variable=self.zoom_sensitivity
         ).grid(
             column=3,
             row=3,
-            sticky='we'
+            sticky='e'
         )
         self.zoom_value_label = ttk.Label(
             mainframe,
@@ -136,19 +140,19 @@ class CustomizationGUI:
         self.sensitivity_object.update(self.orbit_sensitivity.get(), self.pan_sensitivity.get(), self.zoom_sensitivity.get())
 
     def get_current_orbit(self):
-        return '{: .4f} mm per rotation'.format(self.orbit_sensitivity.get())
+        return '{: .4f} degrees per trackball degree'.format(self.orbit_sensitivity.get())
 
     def orbit_slider_changed(self, event):
         self.orbit_value_label.configure(text=self.get_current_orbit())
 
     def get_current_pan(self):
-        return '{: .4f} inches per degree'.format(self.pan_sensitivity.get())
+        return '{: .4f} inches per trackball degree'.format(self.pan_sensitivity.get())
 
     def pan_slider_changed(self, event):
         self.pan_value_label.configure(text=self.get_current_pan())
 
     def get_current_zoom(self):
-        return '{: .4f} inches per degree'.format(self.zoom_sensitivity.get())
+        return '{: .4f} inches per trackball degree'.format(self.zoom_sensitivity.get())
 
     def zoom_slider_changed(self, event):
         self.zoom_value_label.configure(text=self.get_current_zoom())
@@ -159,7 +163,6 @@ def main():
     gui = CustomizationGUI(so)
     print('1')
     time.sleep(4)
-    # print(ts.displayvalues())
 
 
 if __name__ == '__main__':

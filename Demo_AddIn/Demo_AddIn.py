@@ -22,12 +22,13 @@ sensitivity_object = None
 settingsOpen = False
 
 
+
 class SensitivityObject:
 
     def __init__(self):
-        self.orbitSensitivity = 70
-        self.panSensitivity = .0075 # inches per degree
-        self.zoomSensitivity = .125
+        self.orbitSensitivity = 1      # degree per degree
+        self.panSensitivity = .0075     # inches per degree
+        self.zoomSensitivity = .00125   # inches per degree
     
     def update(self, neworbit, newpan, newzoom):
         self.orbitSensitivity = neworbit
@@ -44,8 +45,8 @@ class SensitivityObject:
         return self.panSensitivity
     
     def getPanMultiplier(self):
-        return 25 * .0247 * self.panSensitivity
-        # return .0247 * self.panSensitivity
+        # return 25 * .0247 * self.panSensitivity
+        return .0247 * self.panSensitivity
     
     def getZoomSensitivity(self):
         return self.zoomSensitivity
@@ -98,18 +99,17 @@ class WorkerThread(threading.Thread):
     def run(self):
         while True:
             mode, x, y, z = reciever.fetch_data()
-            if abs(x) < 25:
+            if abs(x) <= 25:
                 x = 0
-            if abs(y) < 25:
+            if abs(y) <= 25:
                 y = 0
-            if abs(z) < 25:
+            if abs(z) <= 25:
                 z = 0
 
             if  x != 0 or y != 0 or z != 0:
                 print('reciever', mode, x, y, z)
                 args = {'mode': mode,'x': x, 'y': y, 'z': z}
                 app.fireCustomEvent(updateCameraEventID, json.dumps(args))
-            time.sleep(.01)
 
 # The class for the gui settings thread.
 class SettingsThread(threading.Thread):
@@ -124,7 +124,7 @@ class SettingsThread(threading.Thread):
                 gui = CustomizationGUI(sensitivity_object)
                 settingsOpen = False
             else:
-                time.sleep(.75)
+                time.sleep(1)
 
 
 def run(context):
@@ -148,7 +148,7 @@ def run(context):
         # Create a button command definition.
         buttonSample = cmdDefs.addButtonDefinition('3DMouseButtonID', 
                                                    '3D Mouse Settings', 
-                                                   'Settings for 3D Mouse')
+                                                   'Sensitivity Customization for 3D Mouse')
         # Connect to the command created event.
         mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
         buttonSample.commandCreated.add(mouseSettingsCommandCreated)
@@ -247,13 +247,15 @@ def orbit(app, viewport, ui, x, y, z):
         #output = open(filePath + fileName, 'w')
         #output.write("This is the Orbit debugging file:\n\n")
 
-        # initialize and create screen vectors
-        uV, eV, sV = screenVectors(ui)
+        print('INSIDE OF ORBIT')
 
         # initialize the camera, target, and eye variables
         camera = viewport.camera
         target = camera.target
         eye = camera.eye
+
+        # initialize and create screen vectors
+        uV, eV, sV = screenVectors(ui, camera)
 
         # find the distance between the Target and the Eye
         r = distanceET(viewport, ui)
@@ -327,6 +329,7 @@ def orbit(app, viewport, ui, x, y, z):
         # re-assign changed Fusion360 variables to their camera parameters
         camera.eye = eye
         camera.upVector = uV
+        camera.isSmoothTransition = False
         viewport.camera = camera
 
         # make the changes in Fusion 360
@@ -353,10 +356,10 @@ def newVector(ui, Va, Vb, T):
         # if the angle is negative, use the negative projection of the horizontal Vector
         if(T > 0):
             mag_a = (math.pow((math.pow((Va.x), 2) + math.pow((Va.y), 2) + math.pow((Va.z), 2)), .5) / math.pow((math.pow((Vb.x), 2) + math.pow((Vb.y), 2) + math.pow((Vb.z), 2)), .5)) * math.cos(math.radians(90 - abs(T)))
-            mag_b = math.cos(math.radians(90 - abs(T)))
+            mag_b = math.sin(math.radians(90 - abs(T)))
         else:
             mag_a = -(math.pow((math.pow((Va.x), 2) + math.pow((Va.y), 2) + math.pow((Va.z), 2)), .5) / math.pow((math.pow((Vb.x), 2) + math.pow((Vb.y), 2) + math.pow((Vb.z), 2)), .5)) * math.cos(math.radians(90 - abs(T)))
-            mag_b = math.cos(math.radians(90 - abs(T)))
+            mag_b = math.sin(math.radians(90 - abs(T)))
 
         # create the vector components of the new Vector3D in terms of Va and Vb
         a = adsk.core.Vector3D.create(mag_a * Vb.x, mag_a * Vb.y, mag_a * Vb.z)
@@ -383,7 +386,8 @@ def screenVectors(ui, camera):
 
         # initialize upVector
         # since Fusion360 incorrectly initializes the upVector, hardcode in the correct dimensions
-        uV = adsk.core.Vector3D.create(-0.4081498184182195, 0.8164965730110046, -0.4083467545927849)
+        # uV = adsk.core.Vector3D.create(-0.4081498184182195, 0.8164965730110046, -0.4083467545927849)
+        uV = camera.upVector
         uV.normalize()
 
         # create eyeVector
