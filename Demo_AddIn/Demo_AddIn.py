@@ -355,18 +355,14 @@ def newVector(ui, Va, Vb, T):
         # if the angle is positive, use the positive projection of the horizontal Vector
         # if the angle is negative, use the negative projection of the horizontal Vector
         if(T > 0):
-            mag_a = (math.pow((math.pow((Va.x), 2) + math.pow((Va.y), 2) + math.pow((Va.z), 2)), .5) / math.pow((math.pow((Vb.x), 2) + math.pow((Vb.y), 2) + math.pow((Vb.z), 2)), .5)) * math.cos(math.radians(90 - abs(T)))
-            mag_b = math.sin(math.radians(90 - abs(T)))
+            mag_a = math.sin(math.radians(abs(T)))
+            mag_b = math.cos(math.radians(abs(T)))
         else:
-            mag_a = -(math.pow((math.pow((Va.x), 2) + math.pow((Va.y), 2) + math.pow((Va.z), 2)), .5) / math.pow((math.pow((Vb.x), 2) + math.pow((Vb.y), 2) + math.pow((Vb.z), 2)), .5)) * math.cos(math.radians(90 - abs(T)))
-            mag_b = math.sin(math.radians(90 - abs(T)))
-
-        # create the vector components of the new Vector3D in terms of Va and Vb
-        a = adsk.core.Vector3D.create(mag_a * Vb.x, mag_a * Vb.y, mag_a * Vb.z)
-        b = adsk.core.Vector3D.create(mag_b * Va.x, mag_b * Va.y, mag_b * Va.z)
+            mag_a = -math.sin(math.radians(abs(T)))
+            mag_b = math.cos(math.radians(abs(T)))
 
         # return the new vector
-        return adsk.core.Vector3D.create(a.x + b.x, a.y + b.y, a.z + b.z)
+        return adsk.core.Vector3D.create(mag_a * Vb.x + mag_b * Va.x, mag_a * Vb.y + mag_b * Va.y, mag_a * Vb.z + mag_b * Va.z)
 
     except:
         if ui:
