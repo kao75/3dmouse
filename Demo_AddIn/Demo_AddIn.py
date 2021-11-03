@@ -1,16 +1,25 @@
+#------------------------------------
+# Demo_AddIn.py
+# Authors: Kareem Omar and Jared Carl
+# ECE1896 Senior Design
+#------------------------------------
+
+# import libraries
 import adsk.core, adsk.fusion, adsk.cam, traceback, math
 import sys, time, json
 import threading
 
 # set python.analysis.extraPaths to ../Libraries in .vscode settings
-sys.path.append('C://Users//omara//PycharmProjects//3dmouse//Libraries')
+sys.path.append('..//Libraries')
 import serial
 import serial.tools.list_ports
 from Reciever import Reciever
 from CustomizationGUI import CustomizationGUI
 
+# reciever initialization
 reciever = Reciever(timing=0)
 
+# global variable initialization
 app = None
 ui = adsk.core.UserInterface.cast(None)
 handlers = []
@@ -21,8 +30,7 @@ tbPanel = None
 sensitivity_object = None
 settingsOpen = False
 
-
-
+# The class for handling sensitivity of the hardware input
 class SensitivityObject:
 
     def __init__(self):
@@ -53,7 +61,6 @@ class SensitivityObject:
 
     def getZoomMultiplier(self):
         return self.zoomSensitivity
-
 
 # The event handler that responds to the custom event being fired.
 class ThreadEventHandler(adsk.core.CustomEventHandler):
@@ -88,7 +95,6 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
         except:
             if ui:
                 ui.messageBox('Failed in notify:\n{}'.format(traceback.format_exc()))
-
 
 # The class for the new thread.
 class WorkerThread(threading.Thread):
@@ -126,7 +132,11 @@ class SettingsThread(threading.Thread):
             else:
                 time.sleep(1)
 
-
+# Execute run
+#   Inputs:
+#       context
+#   Outputs:
+#       N/A
 def run(context):
     global ui
     global app
@@ -184,7 +194,11 @@ def run(context):
         if ui:
             ui.messageBox('Failed in Run:\n{}'.format(traceback.format_exc()))
 
-
+# Execute stop
+#   Inputs:
+#       context
+#   Outputs:
+#       N/A
 def stop(context):
     try:
         reciever.close()
@@ -207,8 +221,6 @@ def stop(context):
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
-
-
 # Event handler for the commandCreated event.
 class MouseSettingsCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
     def __init__(self):
@@ -222,7 +234,6 @@ class MouseSettingsCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandl
         cmd.execute.add(onExecute)
         handlers.append(onExecute)
 
-
 # Event handler for the execute event.
 class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
@@ -231,7 +242,6 @@ class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
         global settingsOpen
         settingsOpen = True
-
 
 # Execute orbit
 #   Inputs:
@@ -247,7 +257,7 @@ def orbit(app, viewport, ui, x, y, z):
         #output = open(filePath + fileName, 'w')
         #output.write("This is the Orbit debugging file:\n\n")
 
-        print('INSIDE OF ORBIT')
+        print('ORBIT')
 
         # initialize the camera, target, and eye variables
         camera = viewport.camera
@@ -345,7 +355,7 @@ def orbit(app, viewport, ui, x, y, z):
 
 # Execute newVector
 #   Inputs:
-#       ui, uV, sV, T
+#       ui, Va, Vb, T
 #   Outputs:
 #       [Vector3D]
 # create a new Vector from the angle generated from the hardware
@@ -402,9 +412,9 @@ def screenVectors(ui, camera):
 
 # Execute distanceET
 #   Inputs:
-#       app, viewport
+#       viewport, ui
 #   Outputs:
-#       Rf
+#       [double]
 # Find the distance between the camera eye and target
 def distanceET(viewport, ui):
     try:
@@ -454,9 +464,9 @@ def function_debug(ui, output, uV, sV, eV, E, title):
 
 # Execute initial_debug
 #   Inputs:
-#
+#       ui, output, uV, sV, eV, E, Tx, Ty, Tz, t, r
 #   Outputs:
-#
+#       output
 # Write variables to an output file before any computations are made
 def initial_debug(ui, output, uV, sV, eV, E, Tx, Ty, Tz, t, r):
     try:
@@ -529,10 +539,10 @@ def hardwareInput_debug(ui):
 
 # Execute Pan
 #   Inputs:
-#       app
+#       app, x, y
 #   Outputs:
 #       N/A
-# Placeholder function for now
+# the pan algorithm
 def pan(app, x, y):
     try:
         print('PAN')
@@ -578,13 +588,12 @@ def pan(app, x, y):
         if ui:
             ui.messageBox('Failed in Pan:\n{}'.format(traceback.format_exec()))
 
-
 # Execute Zoom
 #   Inputs:
-#       ui
+#       app, x, y
 #   Outputs:
 #       N/A
-# Plceholder function for now
+# The zoom algorithm
 def zoom(app, x, y):
     try:
         print('ZOOM')
