@@ -34,9 +34,9 @@ settingsOpen = False
 class SensitivityObject:
 
     def __init__(self):
-        self.orbitSensitivity = 1      # degree per degree
-        self.panSensitivity = .0075     # inches per degree
-        self.zoomSensitivity = .00125   # inches per degree
+        self.orbitSensitivity = 1       # degrees per trackball degree
+        self.panSensitivity = .0075     # inches per trackball degree
+        self.zoomSensitivity = .00125   # inches per trackball degree
     
     def update(self, neworbit, newpan, newzoom):
         self.orbitSensitivity = neworbit
@@ -47,13 +47,14 @@ class SensitivityObject:
         return self.orbitSensitivity
 
     def getOrbitMultiplier(self):
-        return self.getOrbitSensitivity
+        #return 750 * self.orbitSensitivity
+        return 75 * self.orbitSensitivity
     
     def getPanSensitivity(self):
         return self.panSensitivity
     
     def getPanMultiplier(self):
-        # return 25 * .0247 * self.panSensitivity
+        # return 25 * .0247 * self.panSensitivity # for breadboard setup
         return .0247 * self.panSensitivity
     
     def getZoomSensitivity(self):
@@ -61,6 +62,8 @@ class SensitivityObject:
 
     def getZoomMultiplier(self):
         return self.zoomSensitivity
+        # return 20 * self.zoomSensitivity # for breadboard setup
+
 
 # The event handler that responds to the custom event being fired.
 class ThreadEventHandler(adsk.core.CustomEventHandler):
@@ -96,6 +99,7 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
             if ui:
                 ui.messageBox('Failed in notify:\n{}'.format(traceback.format_exc()))
 
+
 # The class for the new thread.
 class WorkerThread(threading.Thread):
     def __init__(self, event):
@@ -103,6 +107,7 @@ class WorkerThread(threading.Thread):
         self.stopped = event
 
     def run(self):
+        reciever.fetch_data()   # throw out first fetch
         while True:
             mode, x, y, z = reciever.fetch_data()
             if abs(x) <= 25:
@@ -113,7 +118,7 @@ class WorkerThread(threading.Thread):
                 z = 0
 
             if  x != 0 or y != 0 or z != 0:
-                print('reciever', mode, x, y, z)
+                print('reciever:', mode, x, y, z)
                 args = {'mode': mode,'x': x, 'y': y, 'z': z}
                 app.fireCustomEvent(updateCameraEventID, json.dumps(args))
 
@@ -221,6 +226,7 @@ def stop(context):
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
+
 # Event handler for the commandCreated event.
 class MouseSettingsCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
     def __init__(self):
@@ -234,6 +240,7 @@ class MouseSettingsCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandl
         cmd.execute.add(onExecute)
         handlers.append(onExecute)
 
+
 # Event handler for the execute event.
 class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
@@ -242,6 +249,7 @@ class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
         global settingsOpen
         settingsOpen = True
+
 
 # Execute orbit
 #   Inputs:
@@ -257,8 +265,6 @@ def orbit(app, viewport, ui, x, y, z):
         #output = open(filePath + fileName, 'w')
         #output.write("This is the Orbit debugging file:\n\n")
 
-        print('ORBIT')
-
         # initialize the camera, target, and eye variables
         camera = viewport.camera
         target = camera.target
@@ -271,15 +277,16 @@ def orbit(app, viewport, ui, x, y, z):
         r = distanceET(viewport, ui)
 
         # set the relative factor for the thetas
-        f = 90
+        global sensitivity_object
+        orbit_multiplier = sensitivity_object.getOrbitMultiplier()
 
         # read in the hardware input (debugging use only)
         #Lx, Ly, Lz = hardwareInput_debug(ui)
 
         # translate the hardware input to a relative change to an angle
-        Tx = x / 8192 * f
-        Ty = y / 8192 * f
-        Tz = z / 8192 * f
+        Tx = x / 8192 * orbit_multiplier
+        Ty = y / 8192 * orbit_multiplier
+        Tz = z / 8192 * orbit_multiplier
 
         # run initial debug
         #output = initial_debug(ui, output, uV, sV, eV, eye, Tx, Ty, Tz, target, r)
@@ -364,7 +371,7 @@ def newVector(ui, Va, Vb, T):
         # create the components of the new Vector3D
         # if the angle is positive, use the positive projection of the horizontal Vector
         # if the angle is negative, use the negative projection of the horizontal Vector
-        if(T > 0):
+        if (T > 0):
             mag_a = math.sin(math.radians(abs(T)))
             mag_b = math.cos(math.radians(abs(T)))
         else:
@@ -372,7 +379,8 @@ def newVector(ui, Va, Vb, T):
             mag_b = math.cos(math.radians(abs(T)))
 
         # return the new vector
-        return adsk.core.Vector3D.create(mag_a * Vb.x + mag_b * Va.x, mag_a * Vb.y + mag_b * Va.y, mag_a * Vb.z + mag_b * Va.z)
+        return adsk.core.Vector3D.create(mag_a * Vb.x + mag_b * Va.x, mag_a * Vb.y + mag_b * Va.y,
+                                         mag_a * Vb.z + mag_b * Va.z)
 
     except:
         if ui:
@@ -393,7 +401,11 @@ def screenVectors(ui, camera):
         # initialize upVector
         # since Fusion360 incorrectly initializes the upVector, hardcode in the correct dimensions
         # uV = adsk.core.Vector3D.create(-0.4081498184182195, 0.8164965730110046, -0.4083467545927849)
-        uV = camera.upVector
+        angle = target.asVector().angleTo(eye.asVector())
+        if angle == 0.563626890972626:
+            uV = adsk.core.Vector3D.create(-0.4081498184182195, 0.8164965730110046, -0.4083467545927849)
+        else:
+            uV = camera.upVector
         uV.normalize()
 
         # create eyeVector
@@ -410,6 +422,7 @@ def screenVectors(ui, camera):
         if ui:
             ui.messageBox('Failed in screenVectors:\n{}'.format(traceback.format_exc()))
 
+
 # Execute distanceET
 #   Inputs:
 #       viewport, ui
@@ -424,6 +437,7 @@ def distanceET(viewport, ui):
     except:
         if ui:
             ui.messageBox('Failed in distanceET:\n{}'.format(traceback.format_exc()))
+
 
 # Execute function_debug
 #   Inputs:
@@ -545,8 +559,6 @@ def hardwareInput_debug(ui):
 # the pan algorithm
 def pan(app, x, y):
     try:
-        print('PAN')
-
         cam = app.activeViewport.camera
 
         current_eye = cam.eye
@@ -557,17 +569,11 @@ def pan(app, x, y):
         sideVector = eye_target_vector.crossProduct(upVector)
         sideVector.normalize()
 
-        # print('up:', upVector.x, upVector.y, upVector.z)
-        # print('side:', sideVector.x, sideVector.y, sideVector.z)
-
         global sensitivity_object
         pan_multiplier = sensitivity_object.getPanMultiplier()
         xChange = ((abs(upVector.x / 1.0) * y) + ((sideVector.x / 1.0) * x)) * pan_multiplier
         yChange = ((abs(upVector.y / 1.0) * y) + ((sideVector.y / 1.0) * x)) * pan_multiplier
         zChange = ((abs(upVector.z / 1.0) * y) + ((sideVector.z / 1.0) * x)) * pan_multiplier
-
-        # .0081 inches/degree = change/5000 = change*.0002
-        # .0247 * sens
 
         new_eye = adsk.core.Point3D.create(current_eye.x + xChange, current_eye.y + yChange, current_eye.z + zChange)
         new_target = adsk.core.Point3D.create(current_target.x + xChange, current_target.y + yChange, current_target.z + zChange)
@@ -596,16 +602,16 @@ def pan(app, x, y):
 # The zoom algorithm
 def zoom(app, x, y):
     try:
-        print('ZOOM')
 
         cam = app.activeViewport.camera
 
         global sensitivity_object
         zoom_multiplier = sensitivity_object.getZoomMultiplier()
         current_viewExtents = cam.viewExtents
-        new_viewExtents = ((x+y)*zoom_multiplier) + current_viewExtents
-        if new_viewExtents < .1:
-            new_viewExtents = .1
+        log_multiplier = abs(math.log(current_viewExtents, 20))
+        new_viewExtents = ((x+y)*log_multiplier*zoom_multiplier) + current_viewExtents
+        if new_viewExtents < .15:
+            new_viewExtents = .15
         cam.viewExtents = new_viewExtents
 
         cam.isSmoothTransition = False
