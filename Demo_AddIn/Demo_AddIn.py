@@ -154,18 +154,18 @@ def updateTest(viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz):
         uVp = 0.10
         
         # check the camera x coordinate to be within Ep percent of Ex
-        if(camera.eye.x >= (Ex - Ep * Ex) & camera.eye.x <= (Ex + Ep * Ex)):
+        if(camera.eye.x >= (Ex - Ep * Ex) and camera.eye.x <= (Ex + Ep * Ex)):
             # check the camera y coordinate to be within Ep percent of Ey
-            if(camera.eye.y >= (Ey - Ep * Ey) & camera.eye.y <= (Ey + Ep * Ey)):
+            if(camera.eye.y >= (Ey - Ep * Ey) and camera.eye.y <= (Ey + Ep * Ey)):
                 # check the camera z coodrinate to be within Ep percent of Ez
-                if(camera.eye.z >= (Ez - Ep * Ez) & camera.eye.z <= (Ez + Ep * Ez)):
+                if(camera.eye.z >= (Ez - Ep * Ez) and camera.eye.z <= (Ez + Ep * Ez)):
                     # camera eye is correcct, check upVector
                     # check the upVector x coordinate to be within uVp percent of uVx
-                    if(camera.upVector.x >= (uVx - uVp * uVx) & camera.upVector.x <= (uVx + uVp * uVx)):
+                    if(camera.upVector.x >= (uVx - uVp * uVx) and camera.upVector.x <= (uVx + uVp * uVx)):
                         # check the upVector y coordinate to be within uVp percent of uVy
-                        if(camera.upVector.y >= (uVy - uVp * uVy) & camera.upVector.y <= (uVy + uVp * uVy)):
+                        if(camera.upVector.y >= (uVy - uVp * uVy) and camera.upVector.y <= (uVy + uVp * uVy)):
                             # check the upVector z coordinate to be within uVp percent of uVz
-                            if(camera.upVector.z >= (uVz - uVp * uVz) & camera.upVector.z <= (uVz + uVp * uVz)):
+                            if(camera.upVector.z >= (uVz - uVp * uVz) and camera.upVector.z <= (uVz + uVp * uVz)):
                                 # camera eye and upVector are correct
                                 print("Orientation Testing Complete!")
                                 print("Time Elapsed: " + str(datetime.now().time() - test_start))
@@ -329,25 +329,25 @@ def run(context):
         addInsPanel = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
 
         # Create a button command definition.
-        settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', 
-                                                  '3D Mouse Settings', 
-                                                  'Sensitivity Customization for 3D Mouse')
+        #settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', 
+         #                                         '3D Mouse Settings', 
+         #                                         'Sensitivity Customization for 3D Mouse')
         # Connect to the command created event.
-        mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
-        settingsButton.commandCreated.add(mouseSettingsCommandCreated)
-        handlers.append(mouseSettingsCommandCreated)
+        #mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
+        #settingsButton.commandCreated.add(mouseSettingsCommandCreated)
+        #handlers.append(mouseSettingsCommandCreated)
         # Add the button to the bottom of the panel.
-        settingsButtonControl = addInsPanel.controls.addCommand(settingsButton)
+        #settingsButtonControl = addInsPanel.controls.addCommand(settingsButton)
 
         # Create a button command definition.
         #settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', '3D Mouse Settings', 'Sensitivity Customization for 3D Mouse')
 
         # Connect to the command created event.
-        mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
-        settingsButton.commandCreated.add(mouseSettingsCommandCreated)
-        handlers.append(mouseSettingsCommandCreated)
+        #mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
+        #settingsButton.commandCreated.add(mouseSettingsCommandCreated)
+        #handlers.append(mouseSettingsCommandCreated)
         # Add the button to the bottom of the panel.
-        settingsButtonControl = addInsPanel.controls.addCommand(settingsButton)
+        #settingsButtonControl = addInsPanel.controls.addCommand(settingsButton)
 
 
         # Register the custom event and connect the handler.
