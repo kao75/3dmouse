@@ -10,14 +10,19 @@ import sys, time, json
 import threading
 
 # set python.analysis.extraPaths to ../Libraries in .vscode settings
-sys.path.append('..//Libraries')
+sys.path.append('C://Users//omara//PycharmProjects//3dmouse//Libraries')
 import serial
 import serial.tools.list_ports
 from Reciever import Reciever
 from CustomizationGUI import CustomizationGUI
 
+TEST_ON_STARTUP = False
+
 # reciever initialization
-reciever = Reciever(timing=0)
+try:
+    reciever = Reciever(timing=0)
+except:
+    print('Reciever could not be initialized.')
 
 # global variable initialization
 app = None
@@ -65,7 +70,7 @@ class SensitivityObject:
         # return 20 * self.zoomSensitivity # for breadboard setup
 
 
-# The event handler that responds to the custom event being fired.
+# The event handler that responds to the update camera custom event being fired.
 class ThreadEventHandler(adsk.core.CustomEventHandler):
     def __init__(self):
         super().__init__()
@@ -100,7 +105,7 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
                 ui.messageBox('Failed in notify:\n{}'.format(traceback.format_exc()))
 
 
-# The class for the new thread.
+# The class for the worker thread responsible for polling the reciever and firing the update camera event.
 class WorkerThread(threading.Thread):
     def __init__(self, event):
         threading.Thread.__init__(self)
@@ -121,21 +126,6 @@ class WorkerThread(threading.Thread):
                 print('reciever:', mode, x, y, z)
                 args = {'mode': mode,'x': x, 'y': y, 'z': z}
                 app.fireCustomEvent(updateCameraEventID, json.dumps(args))
-
-# The class for the gui settings thread.
-class SettingsThread(threading.Thread):
-    def __init__(self, event):
-        threading.Thread.__init__(self)
-        self.stopped = event
-
-    def run(self):
-        global sensitivity_object, settingsOpen
-        while True:
-            if settingsOpen:
-                gui = CustomizationGUI(sensitivity_object)
-                settingsOpen = False
-            else:
-                time.sleep(1)
 
 # Execute run
 #   Inputs:
@@ -160,18 +150,30 @@ def run(context):
 
         # Get the CommandDefinitions collection.
         cmdDefs = ui.commandDefinitions
+        # Get the ADD-INS panel in the model workspace. 
+        addInsPanel = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
+
         # Create a button command definition.
-        buttonSample = cmdDefs.addButtonDefinition('3DMouseButtonID', 
+        settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', 
                                                    '3D Mouse Settings', 
                                                    'Sensitivity Customization for 3D Mouse')
         # Connect to the command created event.
         mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
-        buttonSample.commandCreated.add(mouseSettingsCommandCreated)
+        settingsButton.commandCreated.add(mouseSettingsCommandCreated)
         handlers.append(mouseSettingsCommandCreated)
-        # Get the ADD-INS panel in the model workspace. 
-        addInsPanel = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
         # Add the button to the bottom of the panel.
-        buttonControl = addInsPanel.controls.addCommand(buttonSample)
+        settingsButtonControl = addInsPanel.controls.addCommand(settingsButton)
+
+        # Create a button command definition.
+        settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', 
+                                                   '3D Mouse Settings', 
+                                                   'Sensitivity Customization for 3D Mouse')
+        # Connect to the command created event.
+        mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
+        settingsButton.commandCreated.add(mouseSettingsCommandCreated)
+        handlers.append(mouseSettingsCommandCreated)
+        # Add the button to the bottom of the panel.
+        settingsButtonControl = addInsPanel.controls.addCommand(settingsButton)
 
 
         # Register the custom event and connect the handler.
@@ -226,6 +228,21 @@ def stop(context):
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
+
+# The class for the gui settings thread.
+class SettingsThread(threading.Thread):
+    def __init__(self, event):
+        threading.Thread.__init__(self)
+        self.stopped = event
+
+    def run(self):
+        global sensitivity_object, settingsOpen
+        while True:
+            if settingsOpen:
+                gui = CustomizationGUI(sensitivity_object)
+                settingsOpen = False
+            else:
+                time.sleep(1)
 
 # Event handler for the commandCreated event.
 class MouseSettingsCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
@@ -623,3 +640,9 @@ def zoom(app, x, y):
     except:
         if ui:
             ui.messageBox('Failed in Zoom:\n{}'.format(traceback.format_exec()))
+
+
+def ZoomTesting():
+    while True:
+        time.sleep(.1)
+        zoom(app, 30, 30)
