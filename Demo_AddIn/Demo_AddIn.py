@@ -5,12 +5,13 @@
 #------------------------------------
 
 # import libraries
-import adsk.core, adsk.fusion, adsk.cam, traceback, math
+import adsk.core, adsk.fusion, adsk.cam, traceback, math, random
 import sys, time, json
 import threading
+from datetime import datetime
 
 # set python.analysis.extraPaths to ../Libraries in .vscode settings
-sys.path.append('C://Users//omara//PycharmProjects//3dmouse//Libraries')
+sys.path.append('C://Users//mcqkn//OneDrive//Documents//GitHub//3dmouse//Libraries')
 import serial
 import serial.tools.list_ports
 from Reciever import Reciever
@@ -34,6 +35,16 @@ updateCameraEvent = None
 tbPanel = None
 sensitivity_object = None
 settingsOpen = False
+testing = False
+Ex = 0
+Ey = 0
+Ez = 0
+uVx = 0
+uVy = 0
+uVz = 0
+test_start = 0.0
+test_end = False
+test_complete = False
 
 # The class for handling sensitivity of the hardware input
 class SensitivityObject:
@@ -69,7 +80,6 @@ class SensitivityObject:
         return self.zoomSensitivity
         # return 20 * self.zoomSensitivity # for breadboard setup
 
-
 # The event handler that responds to the update camera custom event being fired.
 class ThreadEventHandler(adsk.core.CustomEventHandler):
     def __init__(self):
@@ -86,6 +96,9 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
             x = int(eventArgs['x'])
             y = int(eventArgs['y'])
             z = int(eventArgs['z'])
+
+            if(test_complete == False):
+                orientationTesting(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
 
             if mode == 0:
                 # execute Orbit
@@ -104,6 +117,168 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
             if ui:
                 ui.messageBox('Failed in notify:\n{}'.format(traceback.format_exc()))
 
+# Execute orientationTesting
+#   Inputs:
+#       testing
+#   Outputs:
+#       N/A
+# Method to perform orientation testing
+def orientationTesting(viewport, ui, camera):
+    try:
+        global testing, Ex, Ey, Ez, uVx, uVy, uVz
+
+        if(testing):
+            # check to see if the orientation is correct
+            testing = updateTest(viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz)
+        else:
+            # begin the test
+            drawVectors(viewport, ui, camera)
+            testing = True
+
+    except:
+        if ui:
+            ui.messageBox('Failed in orientationTesting:\n{}'.format(traceback.format_exc()))
+
+# Execute updateTest
+#   Inputs:
+#       N/A
+#   Ouputs:
+#       N/A
+# check to see if the camera orientation is close to the testing vectors
+def updateTest(viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz):
+    try:
+        global test_start, test_complete
+
+        # the percent error allowed in checking the location of the eye
+        Ep = 0.10
+        uVp = 0.10
+        
+        # check the camera x coordinate to be within Ep percent of Ex
+        if(camera.eye.x >= (Ex - Ep * Ex) & camera.eye.x <= (Ex + Ep * Ex)):
+            # check the camera y coordinate to be within Ep percent of Ey
+            if(camera.eye.y >= (Ey - Ep * Ey) & camera.eye.y <= (Ey + Ep * Ey)):
+                # check the camera z coodrinate to be within Ep percent of Ez
+                if(camera.eye.z >= (Ez - Ep * Ez) & camera.eye.z <= (Ez + Ep * Ez)):
+                    # camera eye is correcct, check upVector
+                    # check the upVector x coordinate to be within uVp percent of uVx
+                    if(camera.upVector.x >= (uVx - uVp * uVx) & camera.upVector.x <= (uVx + uVp * uVx)):
+                        # check the upVector y coordinate to be within uVp percent of uVy
+                        if(camera.upVector.y >= (uVy - uVp * uVy) & camera.upVector.y <= (uVy + uVp * uVy)):
+                            # check the upVector z coordinate to be within uVp percent of uVz
+                            if(camera.upVector.z >= (uVz - uVp * uVz) & camera.upVector.z <= (uVz + uVp * uVz)):
+                                # camera eye and upVector are correct
+                                print("Orientation Testing Complete!")
+                                print("Time Elapsed: " + str(datetime.now().time() - test_start))
+                                test_complete = True
+                                return False
+        return True
+    except:
+        if ui:
+            ui.messageBox('Failed in updateTest:\n{}'.format(traceback.format_exc()))
+
+# Execute drawVectors
+#   Inputs:
+#       testing
+#   Outputs:
+#       N/A
+# Draws the vectors for the orientationTesting
+def drawVectors(viewport, ui, camera):
+    try:
+        global Ex, Ey, Ez, uVx, uVy, uVz
+
+         # initialize drawing variables
+        product = app.activeProduct
+        design = adsk.fusion.Design.cast(product)
+
+        Ex, Ey, Ez = threeRand(viewport, ui)
+
+        # multiply by radius if camera zoom for magnitude
+        Ex = Ex * distanceET(viewport, ui)
+        Ey = Ey * distanceET(viewport, ui)
+        Ez = Ez * distanceET(viewport, ui)
+
+        print("Test Point:")
+        print("x: " + str(Ex))
+        print("y: " + str(Ey))
+        print("z: " + str(Ez))
+
+        Eplane = adsk.core.Plane.create(adsk.core.Point3D.create(Ex, Ey, Ez), adsk.core.Vector3D.create(Ex - camera.target.x, Ey - camera.target.y, Ez - camera.target.z))
+
+        EpUp = Eplane.uDirection
+        EpVp = Eplane.vDirection
+        EpUn = adsk.core.Vector3D.create(-Eplane.uDirection.x, -Eplane.uDirection.y, -Eplane.uDirection.z)
+        EpVn = adsk.core.Vector3D.create(-Eplane.vDirection.x, -Eplane.vDirection.y, -Eplane.vDirection.z)
+
+        r = random.randint(0, 3)
+
+        if(r == 0):
+            vec = EpUp
+        elif(r == 1):
+            vec = EpVp
+        elif(r == 2):
+            vec = EpUn
+        else:
+            vec = EpVn
+
+        uVx = Ex - vec.x
+        uVy = Ey - vec.y
+        uVz = Ez - vec.z
+
+        # define root component
+        rootComp = design.rootComponent
+
+        # create new component: COMP
+        transform = adsk.core.Matrix3D.create()
+        occ = rootComp.occurrences.addNewComponent(transform)
+        comp = occ.component
+        comp.name = "COMP"
+            
+        # create line on COMP
+        # Create a new sketch on the  xy plane on COMP
+        sketches = comp.sketches
+        xyPlane = rootComp.xYConstructionPlane
+        sketch = sketches.add(xyPlane)
+
+        # Draw line on COMP from the camera target to the random point
+        lines = sketch.sketchCurves.sketchLines
+        line1 = lines.addByTwoPoints(viewport.camera.target, adsk.core.Point3D.create(Ex, Ey, Ez))
+        line2 = lines.addByTwoPoints(adsk.core.Point3D.create(Ex, Ey, Ez), adsk.core.Point3D.create(uVx, uVy, uVz))
+    except:
+        if ui:
+            ui.messageBox('Failed in drawVectors:\n{}'.format(traceback.format_exc()))
+
+# Execute threeRand
+#   Inputs:
+#       app, viewport
+#   Outputs
+#       [float], [float], [float]
+# Create three normalized random floating points
+def threeRand(viewport, ui):
+    try:
+        # generate three random floats for the point
+        Ex = random.uniform(0, 1.0)
+        Ey = random.uniform(0, 1.0)
+        Ez = random.uniform(0, 1.0)
+
+        # normalize the random floats
+        Ex2 = Ex / pow(pow(Ex, 2) + pow(Ey, 2) + pow(Ez, 2), 0.5)
+        Ey2 = Ey / pow(pow(Ex, 2) + pow(Ey, 2) + pow(Ez, 2), 0.5)
+        Ez2 = Ez / pow(pow(Ex, 2) + pow(Ey, 2) + pow(Ez, 2), 0.5)
+
+        # 50/50 chance that any of the point components are negative
+        if(random.randint(0, 1)):
+            Ex2 = Ex2 * -1
+        if(random.randint(0, 1)):
+            Ey2 = Ey2 * -1
+        if(random.randint(0, 1)):
+            Ez2 = Ez2 * -1
+
+        # return the normalized floats
+        return Ex2, Ey2, Ez2
+
+    except:
+        if ui:
+            ui.messageBox('Failed in threeRand:\n{}'.format(traceback.format_exc()))
 
 # The class for the worker thread responsible for polling the reciever and firing the update camera event.
 class WorkerThread(threading.Thread):
@@ -155,8 +330,8 @@ def run(context):
 
         # Create a button command definition.
         settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', 
-                                                   '3D Mouse Settings', 
-                                                   'Sensitivity Customization for 3D Mouse')
+                                                  '3D Mouse Settings', 
+                                                  'Sensitivity Customization for 3D Mouse')
         # Connect to the command created event.
         mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
         settingsButton.commandCreated.add(mouseSettingsCommandCreated)
@@ -165,9 +340,8 @@ def run(context):
         settingsButtonControl = addInsPanel.controls.addCommand(settingsButton)
 
         # Create a button command definition.
-        settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', 
-                                                   '3D Mouse Settings', 
-                                                   'Sensitivity Customization for 3D Mouse')
+        #settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', '3D Mouse Settings', 'Sensitivity Customization for 3D Mouse')
+
         # Connect to the command created event.
         mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
         settingsButton.commandCreated.add(mouseSettingsCommandCreated)
@@ -228,7 +402,6 @@ def stop(context):
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
-
 # The class for the gui settings thread.
 class SettingsThread(threading.Thread):
     def __init__(self, event):
@@ -257,7 +430,6 @@ class MouseSettingsCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandl
         cmd.execute.add(onExecute)
         handlers.append(onExecute)
 
-
 # Event handler for the execute event.
 class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
@@ -266,7 +438,6 @@ class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
         global settingsOpen
         settingsOpen = True
-
 
 # Execute orbit
 #   Inputs:
@@ -439,7 +610,6 @@ def screenVectors(ui, camera):
         if ui:
             ui.messageBox('Failed in screenVectors:\n{}'.format(traceback.format_exc()))
 
-
 # Execute distanceET
 #   Inputs:
 #       viewport, ui
@@ -454,7 +624,6 @@ def distanceET(viewport, ui):
     except:
         if ui:
             ui.messageBox('Failed in distanceET:\n{}'.format(traceback.format_exc()))
-
 
 # Execute function_debug
 #   Inputs:
@@ -640,7 +809,6 @@ def zoom(app, x, y):
     except:
         if ui:
             ui.messageBox('Failed in Zoom:\n{}'.format(traceback.format_exec()))
-
 
 def ZoomTesting():
     while True:
