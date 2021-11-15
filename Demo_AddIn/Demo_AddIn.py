@@ -11,15 +11,15 @@ import threading
 from datetime import datetime
 
 # set python.analysis.extraPaths to ../Libraries in .vscode settings
-sys.path.append('C://Users//mcqkn//OneDrive//Documents//GitHub//3dmouse//Libraries')
+sys.path.append('C://Users//omara//PycharmProjects//3dmouse//Libraries')
 import serial
 import serial.tools.list_ports
 from Reciever import Reciever
 from CustomizationGUI import CustomizationGUI
 
-TEST_ON_STARTUP = False
 
 # reciever initialization
+reciever = None
 try:
     reciever = Reciever(timing=0)
 except:
@@ -280,27 +280,28 @@ def threeRand(viewport, ui):
         if ui:
             ui.messageBox('Failed in threeRand:\n{}'.format(traceback.format_exc()))
 
-# The class for the worker thread responsible for polling the reciever and firing the update camera event.
+# The class for the worker thread responsible for polling the reciever Sand firing the update camera event.
 class WorkerThread(threading.Thread):
     def __init__(self, event):
         threading.Thread.__init__(self)
         self.stopped = event
 
     def run(self):
-        reciever.fetch_data()   # throw out first fetch
-        while True:
-            mode, x, y, z = reciever.fetch_data()
-            if abs(x) <= 25:
-                x = 0
-            if abs(y) <= 25:
-                y = 0
-            if abs(z) <= 25:
-                z = 0
+        if reciever is not None:
+            reciever.fetch_data()   # throw out first fetch
+            while True:
+                mode, x, y, z = reciever.fetch_data()
+                if abs(x) <= 20:
+                    x = 0
+                if abs(y) <= 20:
+                    y = 0
+                if abs(z) <= 20:
+                    z = 0
 
-            if  x != 0 or y != 0 or z != 0:
-                print('reciever:', mode, x, y, z)
-                args = {'mode': mode,'x': x, 'y': y, 'z': z}
-                app.fireCustomEvent(updateCameraEventID, json.dumps(args))
+                if  x != 0 or y != 0 or z != 0:
+                    print('reciever:', mode, x, y, z)
+                    args = {'mode': mode,'x': x, 'y': y, 'z': z}
+                    app.fireCustomEvent(updateCameraEventID, json.dumps(args))
 
 # Execute run
 #   Inputs:
@@ -323,31 +324,37 @@ def run(context):
         global sensitivity_object
         sensitivity_object = SensitivityObject()
 
+        uiWorkSpace = ui.workspaces.itemById('FusionSolidEnvironment')
+        uiToolbarPanels = uiWorkSpace.toolbarPanels
+
+        mouseToolbarPanel = uiToolbarPanels.itemById('3DMouse')
+        if mouseToolbarPanel:
+            mouseToolbarPanel.deleteMe()
+        mouseToolbarPanel = uiToolbarPanels.add('3DMouse', '3D Mouse', 'SelectPanel', False)
+
         # Get the CommandDefinitions collection.
         cmdDefs = ui.commandDefinitions
-        # Get the ADD-INS panel in the model workspace. 
-        addInsPanel = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
 
-        # Create a button command definition.
-        #settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', 
-         #                                         '3D Mouse Settings', 
-         #                                         'Sensitivity Customization for 3D Mouse')
+        # Create the settings button command definition.
+        if ui.commandDefinitions.itemById('MouseSettingsButtonID'):
+            ui.commandDefinitions.itemById('MouseSettingsButtonID').deleteMe()
+        settingsButton = cmdDefs.addButtonDefinition('MouseSettingsButtonID', '3D Mouse Settings', 'Sensitivity customization for 3D Mouse', './resources')
         # Connect to the command created event.
-        #mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
-        #settingsButton.commandCreated.add(mouseSettingsCommandCreated)
-        #handlers.append(mouseSettingsCommandCreated)
-        # Add the button to the bottom of the panel.
-        #settingsButtonControl = addInsPanel.controls.addCommand(settingsButton)
+        mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
+        settingsButton.commandCreated.add(mouseSettingsCommandCreated)
+        handlers.append(mouseSettingsCommandCreated)
 
-        # Create a button command definition.
-        #settingsButton = cmdDefs.addButtonDefinition('3DMouseButtonID', '3D Mouse Settings', 'Sensitivity Customization for 3D Mouse')
-
+        # Create the testing button command definition.
+        if ui.commandDefinitions.itemById('MouseTestingButtonID'):
+            ui.commandDefinitions.itemById('MouseTestingButtonID').deleteMe()
+        testingButton = cmdDefs.addButtonDefinition('MouseTestingButtonID', '3D Mouse Unit Testing', 'Run unit testing for 3D Mouse')
         # Connect to the command created event.
-        #mouseSettingsCommandCreated = MouseSettingsCommandCreatedEventHandler()
-        #settingsButton.commandCreated.add(mouseSettingsCommandCreated)
-        #handlers.append(mouseSettingsCommandCreated)
-        # Add the button to the bottom of the panel.
-        #settingsButtonControl = addInsPanel.controls.addCommand(settingsButton)
+        mouseTestingCommandCreated = MouseTestingCommandCreatedEventHandler()
+        testingButton.commandCreated.add(mouseTestingCommandCreated)
+        handlers.append(mouseTestingCommandCreated)
+
+        mouseToolbarPanel.controls.addCommand(settingsButton)
+        mouseToolbarPanel.controls.addCommand(testingButton)
 
 
         # Register the custom event and connect the handler.
@@ -382,20 +389,15 @@ def run(context):
 #       N/A
 def stop(context):
     try:
-        reciever.close()
+        if reciever is not None:
+            reciever.close()
 
-        if handlers.count:
-            updateCameraEvent.remove(handlers[1])
+        mouseToolbarPanel = ui.workspaces.itemById('FusionSolidEnvironment').toolbarPanels.itemById('3DMouse')
+        if mouseToolbarPanel:
+            mouseToolbarPanel.deleteMe()
+
         stopFlag.set()
         app.unregisterCustomEvent(updateCameraEventID)
-
-        addinsPanel = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
-        mouseButton = addinsPanel.controls.itemById('3DMouseButtonID')       
-        if mouseButton:
-            mouseButton.deleteMe()
-        cmdDef = ui.commandDefinitions.itemById('3DMouseButtonID')
-        if cmdDef:
-            cmdDef.deleteMe()
         
         ui.messageBox('3D Mouse Demo\nAdd-In Stopped')
     except:
@@ -438,6 +440,7 @@ class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
         global settingsOpen
         settingsOpen = True
+
 
 # Execute orbit
 #   Inputs:
@@ -590,7 +593,7 @@ def screenVectors(ui, camera):
         # since Fusion360 incorrectly initializes the upVector, hardcode in the correct dimensions
         # uV = adsk.core.Vector3D.create(-0.4081498184182195, 0.8164965730110046, -0.4083467545927849)
         angle = target.asVector().angleTo(eye.asVector())
-        if angle == 0.563626890972626:
+        if round(angle, 4) == 0.5636:    # 0.563626890972626
             uV = adsk.core.Vector3D.create(-0.4081498184182195, 0.8164965730110046, -0.4083467545927849)
         else:
             uV = camera.upVector
@@ -810,7 +813,384 @@ def zoom(app, x, y):
         if ui:
             ui.messageBox('Failed in Zoom:\n{}'.format(traceback.format_exec()))
 
-def ZoomTesting():
-    while True:
-        time.sleep(.1)
-        zoom(app, 30, 30)
+# Event handler for the commandCreated event.
+class MouseTestingCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
+    def __init__(self):
+        super().__init__()
+    def notify(self, args):
+        eventArgs = adsk.core.CommandCreatedEventArgs.cast(args)
+        cmd = eventArgs.command
+
+        # Connect to the execute event.
+        onExecute = MouseTestingCommandExecuteHandler()
+        cmd.execute.add(onExecute)
+        handlers.append(onExecute)
+
+# Event handler for the execute event.
+class MouseTestingCommandExecuteHandler(adsk.core.CommandEventHandler):
+    def __init__(self):
+        super().__init__()
+    def notify(self, args):
+        eventArgs = adsk.core.CommandEventArgs.cast(args)
+        global sensitivity_object
+
+        testingStartTime = datetime.now()
+        passed = 0
+        failed = 0
+        
+        print('\033[95m------------------  3D Mouse Unit Testing Starting  ------------------\033[0m')
+
+        pass_string = '\033[92m' + 'PASS  |  ' + '\033[0m'
+        failed_string = '\033[91m' + 'FAILED  |  ' + '\033[0m'
+
+        # -- Zoom Testing --
+        # TEST: zoom in slightly
+        currentViewExtents = adsk.core.Application.get().activeViewport.camera.viewExtents
+        zoom(adsk.core.Application.get(), -250, 0)
+        time.sleep(.5)
+        newViewExtents = adsk.core.Application.get().activeViewport.camera.viewExtents
+        correctViewExtents = ((-250)*abs(math.log(currentViewExtents, 20))*sensitivity_object.getZoomMultiplier()) + currentViewExtents
+        testResult = round(newViewExtents, 3) == round(correctViewExtents, 3)
+        if testResult:
+            print(pass_string, end='')
+            passed = passed + 1
+        else:
+            print(failed_string, end='')
+            failed = failed + 1
+        print('zoom in slightly  |  ', newViewExtents, '==', correctViewExtents)
+        # TEST: zoom in all the way
+        currentViewExtents = adsk.core.Application.get().activeViewport.camera.viewExtents
+        zoom(adsk.core.Application.get(), -99999, 0)
+        time.sleep(.5)
+        newViewExtents = adsk.core.Application.get().activeViewport.camera.viewExtents
+        correctViewExtents = .15
+        testResult = round(newViewExtents, 3) == round(correctViewExtents, 3)
+        if testResult:
+            print(pass_string, end='')
+            passed = passed + 1
+        else:
+            print(failed_string, end='')
+            failed = failed + 1
+        print('zoom in all the way  |  ', newViewExtents, '==', correctViewExtents)
+        # TEST: zoom out a good amount
+        currentViewExtents = adsk.core.Application.get().activeViewport.camera.viewExtents
+        zoom(adsk.core.Application.get(), 17500, 0)
+        time.sleep(.5)
+        newViewExtents = adsk.core.Application.get().activeViewport.camera.viewExtents
+        correctViewExtents = ((17500)*abs(math.log(currentViewExtents, 20))*sensitivity_object.getZoomMultiplier()) + currentViewExtents
+        testResult = round(newViewExtents, 3) == round(correctViewExtents, 3)
+        if testResult:
+            print(pass_string, end='')
+            passed = passed + 1
+        else:
+            print(failed_string, end='')
+            failed = failed + 1
+        print('zoom out a good amount  |  ', newViewExtents, '==', correctViewExtents)
+        # TEST: zoom random amounts
+        for i in range(4):
+            rand = random.random()
+            rand = (rand - .5) * 5000
+
+            currentViewExtents = adsk.core.Application.get().activeViewport.camera.viewExtents
+            zoom(adsk.core.Application.get(), rand, 0)
+            time.sleep(.5)
+            newViewExtents = adsk.core.Application.get().activeViewport.camera.viewExtents
+            correctViewExtents = ((rand)*abs(math.log(currentViewExtents, 20))*sensitivity_object.getZoomMultiplier()) + currentViewExtents
+            testResult = round(newViewExtents, 3) == round(correctViewExtents, 3)
+            if testResult:
+                print(pass_string, end='')
+                passed = passed + 1
+            else:
+                print(failed_string, end='')
+                failed = failed + 1
+            print('zoom random amount  |  ', newViewExtents, '==', correctViewExtents)
+
+
+        # -- Pan Testing --
+        # TEST: pan left slightly
+        x = 4000
+        y = 0 
+        currentEye = adsk.core.Application.get().activeViewport.camera.eye
+        upVector = adsk.core.Application.get().activeViewport.camera.upVector
+        eye_target_vector = adsk.core.Application.get().activeViewport.camera.target.vectorTo(currentEye)
+        sideVector = eye_target_vector.crossProduct(upVector)
+        sideVector.normalize()
+        pan_multiplier = sensitivity_object.getPanMultiplier()
+        xChange = ((abs(upVector.x / 1.0) * y) + ((sideVector.x / 1.0) * x)) * pan_multiplier
+        yChange = ((abs(upVector.y / 1.0) * y) + ((sideVector.y / 1.0) * x)) * pan_multiplier
+        zChange = ((abs(upVector.z / 1.0) * y) + ((sideVector.z / 1.0) * x)) * pan_multiplier
+        correctEye = adsk.core.Point3D.create(currentEye.x + xChange, currentEye.y + yChange, currentEye.z + zChange)
+        pan(adsk.core.Application.get(), x, y)
+        time.sleep(.5)
+        newEye = adsk.core.Application.get().activeViewport.camera.eye
+        correctEyeString = '(' + str(correctEye.x) + ', ' + str(correctEye.y) + ', ' + str(correctEye.z) + ')'
+        newEyeString = '(' + str(newEye.x) + ', ' + str(newEye.y) + ', ' + str(newEye.z) + ')'
+        testResult = round(newEye.x, 3) == round(correctEye.x, 3) and round(newEye.y, 3) == round(correctEye.y, 3) and round(newEye.z, 3) == round(correctEye.z, 3)
+        if testResult:
+            print(pass_string, end='')
+            passed = passed + 1
+        else:
+            print(failed_string, end='')
+            failed = failed + 1
+        print('pan left slightly  |  ', newEyeString, '==', correctEyeString)
+        # TEST: pan downwards a good amount
+        x = 0
+        y = 4500 
+        currentEye = adsk.core.Application.get().activeViewport.camera.eye
+        upVector = adsk.core.Application.get().activeViewport.camera.upVector
+        eye_target_vector = adsk.core.Application.get().activeViewport.camera.target.vectorTo(currentEye)
+        sideVector = eye_target_vector.crossProduct(upVector)
+        sideVector.normalize()
+        pan_multiplier = sensitivity_object.getPanMultiplier()
+        xChange = ((abs(upVector.x / 1.0) * y) + ((sideVector.x / 1.0) * x)) * pan_multiplier
+        yChange = ((abs(upVector.y / 1.0) * y) + ((sideVector.y / 1.0) * x)) * pan_multiplier
+        zChange = ((abs(upVector.z / 1.0) * y) + ((sideVector.z / 1.0) * x)) * pan_multiplier
+        correctEye = adsk.core.Point3D.create(currentEye.x + xChange, currentEye.y + yChange, currentEye.z + zChange)
+        pan(adsk.core.Application.get(), x, y)
+        time.sleep(.5)
+        newEye = adsk.core.Application.get().activeViewport.camera.eye
+        correctEyeString = '(' + str(correctEye.x) + ', ' + str(correctEye.y) + ', ' + str(correctEye.z) + ')'
+        newEyeString = '(' + str(newEye.x) + ', ' + str(newEye.y) + ', ' + str(newEye.z) + ')'
+        testResult = round(newEye.x, 3) == round(correctEye.x, 3) and round(newEye.y, 3) == round(correctEye.y, 3) and round(newEye.z, 3) == round(correctEye.z, 3)
+        if testResult:
+            print(pass_string, end='')
+            passed = passed + 1
+        else:
+            print(failed_string, end='')
+            failed = failed + 1
+        print('pan downwards a good amount  |  ', newEyeString, '==', correctEyeString)
+        # TEST: pan upwards/right a good amount
+        x = -3000
+        y = -6000 
+        currentEye = adsk.core.Application.get().activeViewport.camera.eye
+        upVector = adsk.core.Application.get().activeViewport.camera.upVector
+        eye_target_vector = adsk.core.Application.get().activeViewport.camera.target.vectorTo(currentEye)
+        sideVector = eye_target_vector.crossProduct(upVector)
+        sideVector.normalize()
+        pan_multiplier = sensitivity_object.getPanMultiplier()
+        xChange = ((abs(upVector.x / 1.0) * y) + ((sideVector.x / 1.0) * x)) * pan_multiplier
+        yChange = ((abs(upVector.y / 1.0) * y) + ((sideVector.y / 1.0) * x)) * pan_multiplier
+        zChange = ((abs(upVector.z / 1.0) * y) + ((sideVector.z / 1.0) * x)) * pan_multiplier
+        correctEye = adsk.core.Point3D.create(currentEye.x + xChange, currentEye.y + yChange, currentEye.z + zChange)
+        pan(adsk.core.Application.get(), x, y)
+        time.sleep(.5)
+        newEye = adsk.core.Application.get().activeViewport.camera.eye
+        correctEyeString = '(' + str(correctEye.x) + ', ' + str(correctEye.y) + ', ' + str(correctEye.z) + ')'
+        newEyeString = '(' + str(newEye.x) + ', ' + str(newEye.y) + ', ' + str(newEye.z) + ')'
+        testResult = round(newEye.x, 3) == round(correctEye.x, 3) and round(newEye.y, 3) == round(correctEye.y, 3) and round(newEye.z, 3) == round(correctEye.z, 3)
+        if testResult:
+            print(pass_string, end='')
+            passed = passed + 1
+        else:
+            print(failed_string, end='')
+            failed = failed + 1
+        print('pan upwards/right a good amount  |  ', newEyeString, '==', correctEyeString)
+        # TEST: pan random amounts
+        for i in range(4):
+            rand = random.random()
+            x = (rand - .5) * 6000
+            rand = random.random()
+            y = (rand - .5) * 6000
+
+            currentEye = adsk.core.Application.get().activeViewport.camera.eye
+            upVector = adsk.core.Application.get().activeViewport.camera.upVector
+            eye_target_vector = adsk.core.Application.get().activeViewport.camera.target.vectorTo(currentEye)
+            sideVector = eye_target_vector.crossProduct(upVector)
+            sideVector.normalize()
+            pan_multiplier = sensitivity_object.getPanMultiplier()
+            xChange = ((abs(upVector.x / 1.0) * y) + ((sideVector.x / 1.0) * x)) * pan_multiplier
+            yChange = ((abs(upVector.y / 1.0) * y) + ((sideVector.y / 1.0) * x)) * pan_multiplier
+            zChange = ((abs(upVector.z / 1.0) * y) + ((sideVector.z / 1.0) * x)) * pan_multiplier
+            correctEye = adsk.core.Point3D.create(currentEye.x + xChange, currentEye.y + yChange, currentEye.z + zChange)
+            pan(adsk.core.Application.get(), x, y)
+            time.sleep(.5)
+            newEye = adsk.core.Application.get().activeViewport.camera.eye
+            correctEyeString = '(' + str(correctEye.x) + ', ' + str(correctEye.y) + ', ' + str(correctEye.z) + ')'
+            newEyeString = '(' + str(newEye.x) + ', ' + str(newEye.y) + ', ' + str(newEye.z) + ')'
+            testResult = round(newEye.x, 3) == round(correctEye.x, 3) and round(newEye.y, 3) == round(correctEye.y, 3) and round(newEye.z, 3) == round(correctEye.z, 3)
+            if testResult:
+                print(pass_string, end='')
+                passed = passed + 1
+            else:
+                print(failed_string, end='')
+                failed = failed + 1
+            print('pan random amount  |  ', newEyeString, '==', correctEyeString)
+        
+        # -- Orbit Testing --
+        # TEST: orbit in x axis
+        x = 4000
+        y = 0 
+        z = 0
+        currentEye = adsk.core.Application.get().activeViewport.camera.eye
+        camera = adsk.core.Application.get().activeViewport.camera
+        target = camera.target
+        eye = camera.eye
+        uV, eV, sV = screenVectors(ui, camera)
+        r = distanceET(adsk.core.Application.get().activeViewport, ui)
+        orbit_multiplier = sensitivity_object.getOrbitMultiplier()
+        Tx = x / 8192 * orbit_multiplier
+        Ty = y / 8192 * orbit_multiplier
+        Tz = z / 8192 * orbit_multiplier
+        if(Tx != 0):
+            sV = newVector(ui, sV, eV, Tx)
+            sV.normalize()
+            eV = sV.crossProduct(uV)
+            eV.normalize()
+            eye = eV.asPoint()
+            eye = adsk.core.Point3D.create(eye.x * r + target.x, eye.y * r + target.y, eye.z * r + target.z)
+        correctEye = eye
+        orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
+        time.sleep(.5)
+        newEye = adsk.core.Application.get().activeViewport.camera.eye
+        correctEyeString = '(' + str(correctEye.x) + ', ' + str(correctEye.y) + ', ' + str(correctEye.z) + ')'
+        newEyeString = '(' + str(newEye.x) + ', ' + str(newEye.y) + ', ' + str(newEye.z) + ')'
+        testResult = round(newEye.x, 3) == round(correctEye.x, 3) and round(newEye.y, 3) == round(correctEye.y, 3) and round(newEye.z, 3) == round(correctEye.z, 3)
+        if testResult:
+            print(pass_string, end='')
+            passed = passed + 1
+        else:
+            print(failed_string, end='')
+            failed = failed + 1
+        print('orbit in x axis  |  ', newEyeString, '==', correctEyeString)
+        # TEST: orbit in both y and z axis
+        x = 0
+        y = 2500 
+        z = 2500
+        currentEye = adsk.core.Application.get().activeViewport.camera.eye
+        camera = adsk.core.Application.get().activeViewport.camera
+        target = camera.target
+        eye = camera.eye
+        uV, eV, sV = screenVectors(ui, camera)
+        r = distanceET(adsk.core.Application.get().activeViewport, ui)
+        orbit_multiplier = sensitivity_object.getOrbitMultiplier()
+        Tx = x / 8192 * orbit_multiplier
+        Ty = y / 8192 * orbit_multiplier
+        Tz = z / 8192 * orbit_multiplier
+        if(Tz != 0):
+            uV = newVector(ui, uV, sV, Tz)
+            uV.normalize()
+            sV = uV.crossProduct(eV)
+            sV.normalize()
+        if(Ty != 0):
+            eV = newVector(ui, eV, uV, Ty)
+            eV.normalize()
+            uV = eV.crossProduct(sV)
+            uV.normalize()
+            eye = eV.asPoint()
+            eye = adsk.core.Point3D.create(eye.x * r + target.x, eye.y * r + target.y, eye.z * r + target.z)
+        correctEye = eye
+        orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
+        time.sleep(.5)
+        newEye = adsk.core.Application.get().activeViewport.camera.eye
+        correctEyeString = '(' + str(correctEye.x) + ', ' + str(correctEye.y) + ', ' + str(correctEye.z) + ')'
+        newEyeString = '(' + str(newEye.x) + ', ' + str(newEye.y) + ', ' + str(newEye.z) + ')'
+        testResult = round(newEye.x, 3) == round(correctEye.x, 3) and round(newEye.y, 3) == round(correctEye.y, 3) and round(newEye.z, 3) == round(correctEye.z, 3)
+        if testResult:
+            print(pass_string, end='')
+            passed = passed + 1
+        else:
+            print(failed_string, end='')
+            failed = failed + 1
+        print('orbit in both y and z axis  |  ', newEyeString, '==', correctEyeString)
+        # TEST: orbit in all axis
+        x = 1000
+        y = 2000 
+        z = 3000
+        currentEye = adsk.core.Application.get().activeViewport.camera.eye
+        camera = adsk.core.Application.get().activeViewport.camera
+        target = camera.target
+        eye = camera.eye
+        uV, eV, sV = screenVectors(ui, camera)
+        r = distanceET(adsk.core.Application.get().activeViewport, ui)
+        orbit_multiplier = sensitivity_object.getOrbitMultiplier()
+        Tx = x / 8192 * orbit_multiplier
+        Ty = y / 8192 * orbit_multiplier
+        Tz = z / 8192 * orbit_multiplier
+        if(Tz != 0):
+            uV = newVector(ui, uV, sV, Tz)
+            uV.normalize()
+            sV = uV.crossProduct(eV)
+            sV.normalize()
+        if(Tx != 0):
+            sV = newVector(ui, sV, eV, Tx)
+            sV.normalize()
+            eV = sV.crossProduct(uV)
+            eV.normalize()
+            eye = eV.asPoint()
+            eye = adsk.core.Point3D.create(eye.x * r + target.x, eye.y * r + target.y, eye.z * r + target.z)
+        if(Ty != 0):
+            eV = newVector(ui, eV, uV, Ty)
+            eV.normalize()
+            uV = eV.crossProduct(sV)
+            uV.normalize()
+            eye = eV.asPoint()
+            eye = adsk.core.Point3D.create(eye.x * r + target.x, eye.y * r + target.y, eye.z * r + target.z)
+        correctEye = eye
+        orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
+        time.sleep(.5)
+        newEye = adsk.core.Application.get().activeViewport.camera.eye
+        correctEyeString = '(' + str(correctEye.x) + ', ' + str(correctEye.y) + ', ' + str(correctEye.z) + ')'
+        newEyeString = '(' + str(newEye.x) + ', ' + str(newEye.y) + ', ' + str(newEye.z) + ')'
+        testResult = round(newEye.x, 3) == round(correctEye.x, 3) and round(newEye.y, 3) == round(correctEye.y, 3) and round(newEye.z, 3) == round(correctEye.z, 3)
+        if testResult:
+            print(pass_string, end='')
+            passed = passed + 1
+        else:
+            print(failed_string, end='')
+            failed = failed + 1
+        print('orbit in all axis  |  ', newEyeString, '==', correctEyeString)
+        # TEST: orbit random amounts
+        for i in range(4):
+            rand = random.random()
+            x = (rand - .5) * 6000
+            rand = random.random()
+            y = (rand - .5) * 6000
+            rand = random.random()
+            z = (rand - .5) * 6000
+            currentEye = adsk.core.Application.get().activeViewport.camera.eye
+            camera = adsk.core.Application.get().activeViewport.camera
+            target = camera.target
+            eye = camera.eye
+            uV, eV, sV = screenVectors(ui, camera)
+            r = distanceET(adsk.core.Application.get().activeViewport, ui)
+            orbit_multiplier = sensitivity_object.getOrbitMultiplier()
+            Tx = x / 8192 * orbit_multiplier
+            Ty = y / 8192 * orbit_multiplier
+            Tz = z / 8192 * orbit_multiplier
+            if(Tz != 0):
+                uV = newVector(ui, uV, sV, Tz)
+                uV.normalize()
+                sV = uV.crossProduct(eV)
+                sV.normalize()
+            if(Tx != 0):
+                sV = newVector(ui, sV, eV, Tx)
+                sV.normalize()
+                eV = sV.crossProduct(uV)
+                eV.normalize()
+                eye = eV.asPoint()
+                eye = adsk.core.Point3D.create(eye.x * r + target.x, eye.y * r + target.y, eye.z * r + target.z)
+            if(Ty != 0):
+                eV = newVector(ui, eV, uV, Ty)
+                eV.normalize()
+                uV = eV.crossProduct(sV)
+                uV.normalize()
+                eye = eV.asPoint()
+                eye = adsk.core.Point3D.create(eye.x * r + target.x, eye.y * r + target.y, eye.z * r + target.z)
+            correctEye = eye
+            orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
+            time.sleep(.5)
+            newEye = adsk.core.Application.get().activeViewport.camera.eye
+            correctEyeString = '(' + str(correctEye.x) + ', ' + str(correctEye.y) + ', ' + str(correctEye.z) + ')'
+            newEyeString = '(' + str(newEye.x) + ', ' + str(newEye.y) + ', ' + str(newEye.z) + ')'
+            testResult = round(newEye.x, 3) == round(correctEye.x, 3) and round(newEye.y, 3) == round(correctEye.y, 3) and round(newEye.z, 3) == round(correctEye.z, 3)
+            if testResult:
+                print(pass_string, end='')
+                passed = passed + 1
+            else:
+                print(failed_string, end='')
+                failed = failed + 1
+            print('orbit randomly  |  ', newEyeString, '==', correctEyeString)
+
+        elapsedTime = round((datetime.now() - testingStartTime).total_seconds(), 3)
+        print('\033[95m------------------  ' + str(passed + failed) + ' tests: ' + str(passed) + ' passed, ' + str(failed) + ' failed in ' + str(elapsedTime) + ' seconds' + '  ------------------\033[0m')
+        ui.messageBox('3D Mouse Unit Tests Complete\n' + str(passed + failed) + ' tests: ' + str(passed) + ' passed, ' + str(failed) + ' failed\n' + 'runtime: ' + str(elapsedTime) + ' seconds')
