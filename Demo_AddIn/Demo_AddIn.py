@@ -45,6 +45,20 @@ uVz = 0
 test_start = 0.0
 test_end = False
 test_complete = False
+dirX = 1
+dirY = -1
+dirZ = 1
+
+# initialize drawing variables
+product = app.activeProduct
+design = adsk.fusion.Design.cast(product)
+rootComp = design.rootComponent
+
+# create new component: COMP
+transform = adsk.core.Matrix3D.create()
+occ = rootComp.occurrences.addNewComponent(transform)
+comp = occ.component
+comp.name = "COMP"
 
 # The class for handling sensitivity of the hardware input
 class SensitivityObject:
@@ -104,13 +118,13 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
                 #orientationTesting(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
 
             # manual testing
-            if(testing == False):
-                testing = True
-                drawVectors(adsk.core.Application.get().activeViewport, ui, adsk.core.Application.get().activeViewport.camera)
+            #if(testing == False):
+                #testing = True
+                #drawVectors(adsk.core.Application.get().activeViewport, ui, adsk.core.Application.get().activeViewport.camera)
 
             if mode == 0:
                 # execute Orbit
-                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * -1, y, z * -1)
+                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * dirX, y * dirY, z * dirZ)
             elif mode == 1:
                 # execute Pan
                 pan(adsk.core.Application.get(), x, y)
@@ -119,11 +133,43 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
                 zoom(adsk.core.Application.get(), x, y)
             else:
                 # error, default to Orbit
-                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * -1, y, z * -1)
+                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * dirX, y * dirY, z * dirZ)
 
         except:
             if ui:
                 ui.messageBox('Failed in notify:\n{}'.format(traceback.format_exc()))
+
+# Execute invertDirections
+#   Inputs:
+#       
+#   Outputs:
+#       N/A
+# invert the directions of the 3D Mouse
+def invertDirections():
+    try:
+        global dirX, dirY, dirZ
+
+        # invert the x direction
+        if(dirX == 1):
+            dirX = -1
+        else:
+            dirX = 1
+        
+        # invert the y direction
+        if(dirY == 1):
+            dirY = -1
+        else:
+            dirY = 1
+
+        # invert the z direction
+        if(dirZ == 1):
+            dirZ = -1
+        else:
+            dirZ = 1
+
+    except:
+        if ui:
+            ui.messageBox('Failed in invertDirections:\n{}'.format(traceback.format_exc()))
 
 # Execute orientationTesting
 #   Inputs:
@@ -198,11 +244,7 @@ def updateTest(viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz):
 # Draws the vectors for the orientationTesting
 def drawVectors(viewport, ui, camera):
     try:
-        global Ex, Ey, Ez, uVx, uVy, uVz
-
-         # initialize drawing variables
-        product = app.activeProduct
-        design = adsk.fusion.Design.cast(product)
+        global Ex, Ey, Ez, uVx, uVy, uVz, design, rootComp, comp
 
         Ex, Ey, Ez = threeRand(viewport, ui)
 
@@ -250,15 +292,6 @@ def drawVectors(viewport, ui, camera):
         print("x: " + str(uVx3))
         print("y: " + str(uVy3))
         print("z: " + str(uVz3))
-
-        # define root component
-        rootComp = design.rootComponent
-
-        # create new component: COMP
-        transform = adsk.core.Matrix3D.create()
-        occ = rootComp.occurrences.addNewComponent(transform)
-        comp = occ.component
-        comp.name = "COMP"
             
         # create line on COMP
         # Create a new sketch on the  xy plane on COMP
@@ -278,6 +311,22 @@ def drawVectors(viewport, ui, camera):
     except:
         if ui:
             ui.messageBox('Failed in drawVectors:\n{}'.format(traceback.format_exc()))
+
+# Execute clearVectors
+#   Inputs:
+#       
+#   Outputs:
+#       N/A
+# clear the vectors that are drawn for testing
+def clearVectors(viewport, ui, camera):
+    try:
+        global comp
+
+        for occurance in rootComp.occurancesByComponent(comp):
+            occurance.deleteMe()
+    except:
+        if ui:
+            ui.messageBox('Failed in clearVectors:\n{}'.format(traceback.format_exc()))
 
 # Execute threeRand
 #   Inputs:
@@ -319,23 +368,6 @@ class WorkerThread(threading.Thread):
         self.stopped = event
 
     def run(self):
-<<<<<<< Updated upstream
-        if reciever is not None:
-            reciever.fetch_data()   # throw out first fetch
-            while True:
-                mode, x, y, z = reciever.fetch_data()
-                if abs(x) <= 20:
-                    x = 0
-                if abs(y) <= 20:
-                    y = 0
-                if abs(z) <= 20:
-                    z = 0
-
-                if  x != 0 or y != 0 or z != 0:
-                    print('reciever:', mode, x, y, z)
-                    args = {'mode': mode,'x': x, 'y': y, 'z': z}
-                    app.fireCustomEvent(updateCameraEventID, json.dumps(args))
-=======
         reciever.fetch_data()   # throw out first fetch
         while True:
             mode, x, y, z = reciever.fetch_data()
@@ -350,7 +382,6 @@ class WorkerThread(threading.Thread):
                 #print('reciever:', mode, x, y, z)
                 args = {'mode': mode,'x': x, 'y': y, 'z': z}
                 app.fireCustomEvent(updateCameraEventID, json.dumps(args))
->>>>>>> Stashed changes
 
 # Execute run
 #   Inputs:
@@ -412,10 +443,30 @@ def run(context):
         speedTestingButton.commandCreated.add(mouseTestingCommandCreated)
         handlers.append(mouseSpeedTestingCommandCreated)
 
+        # Create the orientation testing button command definition.
+        if ui.commandDefinitions.itemById('OrientationTestingButtonID'):
+            ui.commandDefinitions.itemById('OrientationTestingButtonID').deleteMe()
+        oTestingButton = cmdDefs.addButtonDefinition('OrientationTestingButton', 'Orientation Testing', 'Initialize Orientation Test')
+        # Connect to the command created event.
+        mouseOTestingCommandCreated = OTestingCommandCreatedEventHandler()
+        oTestingButton.commandCreated.add(mouseOTestingCommandCreated)
+        handlers.append(mouseOTestingCommandCreated)
+
+        # Create the invert directions button command definition.
+        if ui.commandDefinitions.itemById('InvertDirectionsButtonID'):
+            ui.commandDefinitions.itemById('InvertDirectionsButtonID').deleteMe()
+        invertDirectionsButton = cmdDefs.addButtonDefinition('InvertDirectionsButtonID', 'Hardware Controls', 'Invert Hardware Direction')
+        # Connect to the command created event.
+        invertDirectionsCommandCreated = invertDirectionsCommandCreatedEventHandler()
+        invertDirectionsButton.commandCreated.add(invertDirectionsCommandCreated)
+        handlers.append(invertDirectionsCommandCreated)
+
+        # add the buttons to the toolbar panel
         mouseToolbarPanel.controls.addCommand(settingsButton)
         mouseToolbarPanel.controls.addCommand(testingButton)
         mouseToolbarPanel.controls.addCommand(speedTestingButton)
-
+        mouseToolbarPanel.controls.addCommand(oTestingButton)
+        mouseToolbarPanel.controls.addCommand(invertDirectionsButton)
 
         # Register the custom event and connect the handler.
         global updateCameraEvent
@@ -500,7 +551,6 @@ class MouseSettingsCommandExecuteHandler(adsk.core.CommandEventHandler):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
         global settingsOpen
         settingsOpen = True
-
 
 # Execute orbit
 #   Inputs:
@@ -873,7 +923,56 @@ def zoom(app, x, y):
         if ui:
             ui.messageBox('Failed in Zoom:\n{}'.format(traceback.format_exec()))
 
-# Event handler for the commandCreated event.
+# Creating the OrientationTesting Event
+class OTestingCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
+    def __init__(self):
+        super().__init__()
+    def notify(self, args):
+        eventArgs = adsk.core.CommandCreatedEventArgs.cast(args)
+        cmd = eventArgs.command
+
+        # Connect to the execute event.
+        onExecute = OTestingCommandExecuteHandler()
+        cmd.execute.add(onExecute)
+        handlers.append(onExecute)
+
+# Execute event handler for OrientationTesting
+class OTestingCommandExecuteHandler(adsk.core.CommandEventHandler):
+    def __init__(self):
+        super().__init__()
+    def notify(self, args):
+        eventArgs = adsk.core.CommandEventArgs.cast(args)
+
+        # clear the previous vectors before drawing new ones
+        clearVectors(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
+
+        # draw the new vectors
+        drawVectors(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
+        
+# Creating the invertDirections Event
+class invertDirectionsCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
+    def __init__(self):
+        super().__init__()
+    def notify(self, args):
+        eventArgs = adsk.core.CommandCreatedEventArgs.cast(args)
+        cmd = eventArgs.command
+
+        # Connect to the execute event.
+        onExecute = invertDirectionsCommandExecuteHandler()
+        cmd.execute.add(onExecute)
+        handlers.append(onExecute)
+
+# Execute event handler for invertDirections
+class invertDirectionsCommandExecuteHandler(adsk.core.CommandEventHandler):
+    def __init__(self):
+        super().__init__()
+    def notify(self, args):
+        eventArgs = adsk.core.CommandEventArgs.cast(args)
+
+        #invert the directions of the hardware input
+        invertDirections()
+
+# Creating the Mouse Testing Event
 class MouseTestingCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
     def __init__(self):
         super().__init__()
@@ -886,7 +985,7 @@ class MouseTestingCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandle
         cmd.execute.add(onExecute)
         handlers.append(onExecute)
 
-# Event handler for the execute event.
+# Execute event handler for Mouse Testing Event
 class MouseTestingCommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
         super().__init__()
