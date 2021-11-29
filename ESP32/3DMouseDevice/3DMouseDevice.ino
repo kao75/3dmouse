@@ -4,6 +4,44 @@
  * Last Modified: 11/29/2021
  */
 
+
+// Include the WiFi library and esp_now in this sketch
+#include <esp_now.h>
+#include <WiFi.h>
+
+uint8_t receiverAddress[] = {0x84, 0xCC, 0xA8, 0x47, 0xD4, 0x7C};
+
+typedef struct broadcastToReceiver {
+  int mode;
+  int x;
+  int y;
+  int z;
+} broadcastToReceiver;
+typedef struct incomingReceiverMessage {
+  char receiverChar;
+} incomingReceiverMessage;
+
+broadcastToReceiver EncoderData;
+incomingReceiverMessage IncomingReceiverCommand;
+
+// Callback when data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("\r\nLast Packet Send Status:\t");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
+// Callback when data is received
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&IncomingReceiverCommand, incomingData, sizeof(IncomingReceiverCommand));
+  Serial.print("Bytes received: ");
+  Serial.println(len);
+  char receiverChar = IncomingReceiverCommand.receiverChar;
+  if (receiverChar == 'w') {
+  sendData();
+  }
+}
+
+
 // Include the SPI library in this sketch
 #include "SPI.h"
 
@@ -87,6 +125,44 @@ void setup() {
     pinMode(LED_PAN_PIN, OUTPUT);
     pinMode(LED_ZOOM_PIN, OUTPUT);
     pinMode(LED_ORBIT_PIN, OUTPUT);
+
+
+        // Include the WiFi library and esp_now in this sketch
+    #include <esp_now.h>
+    #include <WiFi.h>
+    
+    uint8_t receiverAddress[] = {0x84, 0xCC, 0xA8, 0x47, 0xD4, 0x7C};
+    
+    typedef struct broadcastToReceiver {
+      int mode;
+      int x;
+      int y;
+      int z;
+    } broadcastToReceiver;
+    typedef struct incomingReceiverMessage {
+      char receiverChar;
+    } incomingReceiverMessage;
+    
+    broadcastToReceiver EncoderData;
+    incomingReceiverMessage IncomingReceiverCommand;
+    
+    // Callback when data is sent
+    void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+      Serial.print("\r\nLast Packet Send Status:\t");
+      Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+    }
+    
+    // Callback when data is received
+    void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+      memcpy(&IncomingReceiverCommand, incomingData, sizeof(IncomingReceiverCommand));
+      Serial.print("Bytes received: ");
+      Serial.println(len);
+      char receiverChar = IncomingReceiverCommand.receiverChar;
+      if (receiverChar == 'w') {
+      sendData();
+      }
+    }
+    
 
     // Blink all LEDs
     // Init LEDs to off
@@ -279,4 +355,21 @@ void ledsOn(){
   digitalWrite(LED_PAN_PIN, HIGH);
   digitalWrite(LED_ZOOM_PIN, HIGH);
   digitalWrite(LED_ORBIT_PIN, HIGH);
+}
+
+void sendData() {
+  // update EncoderData varaible with current encoder values
+  EncoderData.mode = 2;
+    EncoderData.x = 111;
+    EncoderData.y = 222;
+    EncoderData.z = 333;
+    // Send encoder data message via ESP-NOW
+    esp_err_t result = esp_now_send(receiverAddress, (uint8_t *) &EncoderData, sizeof(EncoderData));
+     
+    if (result == ESP_OK) {
+      Serial.println("Sent with success");
+    }
+    else {
+      Serial.println("Error sending the data");
+    }
 }
