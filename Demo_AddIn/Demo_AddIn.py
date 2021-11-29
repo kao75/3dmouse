@@ -11,7 +11,7 @@ import threading
 from datetime import datetime
 
 # set python.analysis.extraPaths to ../Libraries in .vscode settings
-sys.path.append('D:\\OneDrive - University of Pittsburgh\\Fall 2021\\Ece 1896\\Project\\3D Mouse Project\\Github\\3dmouse\\Libraries')
+sys.path.append('C://Users//omara//PycharmProjects//3dmouse//Libraries')
 import serial
 import serial.tools.list_ports
 from Reciever import Reciever
@@ -87,8 +87,6 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
 
     def notify(self, args):
         try:
-            global testing
-
             # Make sure a command isn't running before changes are made.
             if ui.activeCommand != 'SelectCommand':
                 ui.commandDefinitions.itemById('SelectCommand').execute()
@@ -99,18 +97,12 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
             y = int(eventArgs['y'])
             z = int(eventArgs['z'])
 
-            # automatic testing
-            #if(test_complete == False):
-                #orientationTesting(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
-
-            # manual testing
-            if(testing == False):
-                testing = True
-                drawVectors(adsk.core.Application.get().activeViewport, ui, adsk.core.Application.get().activeViewport.camera)
+            if(test_complete == False):
+                orientationTesting(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
 
             if mode == 0:
                 # execute Orbit
-                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * -1, y, z * -1)
+                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
             elif mode == 1:
                 # execute Pan
                 pan(adsk.core.Application.get(), x, y)
@@ -119,7 +111,7 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
                 zoom(adsk.core.Application.get(), x, y)
             else:
                 # error, default to Orbit
-                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * -1, y, z * -1)
+                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
 
         except:
             if ui:
@@ -158,28 +150,22 @@ def updateTest(viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz):
         global test_start, test_complete
 
         # the percent error allowed in checking the location of the eye
-        Ep = 0.25
-        uVp = 0.25
+        Ep = 0.10
+        uVp = 0.10
         
         # check the camera x coordinate to be within Ep percent of Ex
         if(camera.eye.x >= (Ex - Ep * Ex) and camera.eye.x <= (Ex + Ep * Ex)):
-            print("\tin1")
             # check the camera y coordinate to be within Ep percent of Ey
             if(camera.eye.y >= (Ey - Ep * Ey) and camera.eye.y <= (Ey + Ep * Ey)):
-                print("\t\tin2")
                 # check the camera z coodrinate to be within Ep percent of Ez
                 if(camera.eye.z >= (Ez - Ep * Ez) and camera.eye.z <= (Ez + Ep * Ez)):
-                    print("\t\t\tin3")
                     # camera eye is correcct, check upVector
                     # check the upVector x coordinate to be within uVp percent of uVx
                     if(camera.upVector.x >= (uVx - uVp * uVx) and camera.upVector.x <= (uVx + uVp * uVx)):
-                        print("\t\t\t\tin4")
                         # check the upVector y coordinate to be within uVp percent of uVy
                         if(camera.upVector.y >= (uVy - uVp * uVy) and camera.upVector.y <= (uVy + uVp * uVy)):
-                            print("\t\t\t\t\tin5")
                             # check the upVector z coordinate to be within uVp percent of uVz
                             if(camera.upVector.z >= (uVz - uVp * uVz) and camera.upVector.z <= (uVz + uVp * uVz)):
-                                print("\t\t\t\t\t\tin6")
                                 # camera eye and upVector are correct
                                 print("Orientation Testing Complete!")
                                 print("Time Elapsed: " + str(datetime.now().time() - test_start))
@@ -238,19 +224,6 @@ def drawVectors(viewport, ui, camera):
         uVy = Ey - vec.y
         uVz = Ez - vec.z
 
-        uVx2 = uVx - Ex
-        uVy2 = uVy - Ey
-        uVz2 = uVz - Ez
-
-        uVx3 = uVx2 / pow(pow(uVx2, 2) + pow(uVy2, 2) + pow(uVz2, 2), 0.5)
-        uVy3 = uVy2 / pow(pow(uVx2, 2) + pow(uVy2, 2) + pow(uVz2, 2), 0.5)
-        uVz3 = uVz2 / pow(pow(uVx2, 2) + pow(uVy2, 2) + pow(uVz2, 2), 0.5)
-
-        print("Test upVector:")
-        print("x: " + str(uVx3))
-        print("y: " + str(uVy3))
-        print("z: " + str(uVz3))
-
         # define root component
         rootComp = design.rootComponent
 
@@ -270,11 +243,6 @@ def drawVectors(viewport, ui, camera):
         lines = sketch.sketchCurves.sketchLines
         line1 = lines.addByTwoPoints(viewport.camera.target, adsk.core.Point3D.create(Ex, Ey, Ez))
         line2 = lines.addByTwoPoints(adsk.core.Point3D.create(Ex, Ey, Ez), adsk.core.Point3D.create(uVx, uVy, uVz))
-
-        uVx = uVx3
-        uVy = uVy3
-        uVz = uVz3
-
     except:
         if ui:
             ui.messageBox('Failed in drawVectors:\n{}'.format(traceback.format_exc()))
@@ -319,7 +287,6 @@ class WorkerThread(threading.Thread):
         self.stopped = event
 
     def run(self):
-<<<<<<< Updated upstream
         if reciever is not None:
             reciever.fetch_data()   # throw out first fetch
             while True:
@@ -335,22 +302,6 @@ class WorkerThread(threading.Thread):
                     print('reciever:', mode, x, y, z)
                     args = {'mode': mode,'x': x, 'y': y, 'z': z}
                     app.fireCustomEvent(updateCameraEventID, json.dumps(args))
-=======
-        reciever.fetch_data()   # throw out first fetch
-        while True:
-            mode, x, y, z = reciever.fetch_data()
-            if abs(x) <= 10:
-                x = 0
-            if abs(y) <= 10:
-                y = 0
-            if abs(z) <= 10:
-                z = 0
-
-            if  x != 0 or y != 0 or z != 0:
-                #print('reciever:', mode, x, y, z)
-                args = {'mode': mode,'x': x, 'y': y, 'z': z}
-                app.fireCustomEvent(updateCameraEventID, json.dumps(args))
->>>>>>> Stashed changes
 
 # Execute run
 #   Inputs:
