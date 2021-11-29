@@ -344,7 +344,7 @@ def run(context):
         settingsButton.commandCreated.add(mouseSettingsCommandCreated)
         handlers.append(mouseSettingsCommandCreated)
 
-        # Create the testing button command definition.
+        # Create the unit testing button command definition.
         if ui.commandDefinitions.itemById('MouseTestingButtonID'):
             ui.commandDefinitions.itemById('MouseTestingButtonID').deleteMe()
         testingButton = cmdDefs.addButtonDefinition('MouseTestingButtonID', '3D Mouse Unit Testing', 'Run unit testing for 3D Mouse')
@@ -353,8 +353,19 @@ def run(context):
         testingButton.commandCreated.add(mouseTestingCommandCreated)
         handlers.append(mouseTestingCommandCreated)
 
+        # Create the unit testing button command definition.
+        if ui.commandDefinitions.itemById('MouseSpeedTestingButtonID'):
+            ui.commandDefinitions.itemById('MouseSpeedTestingButtonID').deleteMe()
+        speedTestingButton = cmdDefs.addButtonDefinition('MouseSpeedTestingButtonID', '3D Mouse Speed Testing',
+                                                    'Run speed testing for 3D Mouse')
+        # Connect to the command created event.
+        mouseSpeedTestingCommandCreated = MouseTestingCommandCreatedEventHandler()
+        speedTestingButton.commandCreated.add(mouseTestingCommandCreated)
+        handlers.append(mouseSpeedTestingCommandCreated)
+
         mouseToolbarPanel.controls.addCommand(settingsButton)
         mouseToolbarPanel.controls.addCommand(testingButton)
+        mouseToolbarPanel.controls.addCommand(speedTestingButton)
 
 
         # Register the custom event and connect the handler.
