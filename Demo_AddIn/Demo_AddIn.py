@@ -11,7 +11,7 @@ import threading
 from datetime import datetime
 
 # set python.analysis.extraPaths to ../Libraries in .vscode settings
-sys.path.append('C://Users//omara//PycharmProjects//3dmouse//Libraries')
+sys.path.append('D:\\OneDrive - University of Pittsburgh\\Fall 2021\\Ece 1896\\Project\\3D Mouse Project\\Github\\3dmouse\\Libraries')
 import serial
 import serial.tools.list_ports
 from Reciever import Reciever
