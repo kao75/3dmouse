@@ -138,7 +138,7 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
 
 # Execute invertDirections
 #   Inputs:
-#       
+#       N/A
 #   Outputs:
 #       N/A
 # invert the directions of the 3D Mouse
@@ -170,7 +170,7 @@ def invertDirections():
 
 # Execute orientationTesting
 #   Inputs:
-#       testing
+#       viewport, ui, camera
 #   Outputs:
 #       N/A
 # Method to perform orientation testing
@@ -192,7 +192,7 @@ def orientationTesting(viewport, ui, camera):
 
 # Execute updateTest
 #   Inputs:
-#       N/A
+#       viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz
 #   Ouputs:
 #       N/A
 # check to see if the camera orientation is close to the testing vectors
@@ -235,7 +235,7 @@ def updateTest(viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz):
 
 # Execute drawVectors
 #   Inputs:
-#       testing
+#       viewport, ui, camera
 #   Outputs:
 #       N/A
 # Draws the vectors for the orientationTesting
@@ -327,7 +327,7 @@ def clearVectors(ui):
 
 # Execute threeRand
 #   Inputs:
-#       app, viewport
+#       viewport, ui
 #   Outputs
 #       [float], [float], [float]
 # Create three normalized random floating points
@@ -444,8 +444,7 @@ def run(context):
         # Create the unit testing button command definition.
         if ui.commandDefinitions.itemById('MouseSpeedTestingButtonID'):
             ui.commandDefinitions.itemById('MouseSpeedTestingButtonID').deleteMe()
-        speedTestingButton = cmdDefs.addButtonDefinition('MouseSpeedTestingButtonID', '3D Mouse Speed Testing',
-                                                    'Run speed testing for 3D Mouse')
+        speedTestingButton = cmdDefs.addButtonDefinition('MouseSpeedTestingButtonID', '3D Mouse Speed Testing', 'Run speed testing for 3D Mouse')
         # Connect to the command created event.
         mouseSpeedTestingCommandCreated = MouseTestingCommandCreatedEventHandler()
         speedTestingButton.commandCreated.add(mouseTestingCommandCreated)
@@ -454,7 +453,7 @@ def run(context):
         # Create the orientation testing button command definition.
         if ui.commandDefinitions.itemById('OrientationTestingButtonID'):
             ui.commandDefinitions.itemById('OrientationTestingButtonID').deleteMe()
-        oTestingButton = cmdDefs.addButtonDefinition('OrientationTestingButton', 'Orientation Testing', 'Initialize Orientation Test')
+        oTestingButton = cmdDefs.addButtonDefinition('OrientationTestingButtonID', 'Orientation Testing', 'Initialize Orientation Test')
         # Connect to the command created event.
         mouseOTestingCommandCreated = OTestingCommandCreatedEventHandler()
         oTestingButton.commandCreated.add(mouseOTestingCommandCreated)
