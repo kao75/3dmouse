@@ -11,7 +11,7 @@ import threading
 from datetime import datetime
 
 # set python.analysis.extraPaths to ../Libraries in .vscode settings
-sys.path.append('D:\\OneDrive - University of Pittsburgh\\Fall 2021\\Ece 1896\\Project\\3D Mouse Project\\Github\\3dmouse\\Libraries')
+sys.path.append('C://Users//mcqkn//OneDrive//Documents//GitHub//3dmouse//Libraries')
 import serial
 import serial.tools.list_ports
 from Reciever import Reciever
@@ -49,16 +49,13 @@ dirX = 1
 dirY = -1
 dirZ = 1
 
-# initialize drawing variables
-product = app.activeProduct
-design = adsk.fusion.Design.cast(product)
-rootComp = design.rootComponent
-
-# create new component: COMP
-transform = adsk.core.Matrix3D.create()
-occ = rootComp.occurrences.addNewComponent(transform)
-comp = occ.component
-comp.name = "COMP"
+# initialize drawing variables and component
+product = None
+design = None
+rootComp = None
+transform = None
+occ = None
+comp = None
 
 # The class for handling sensitivity of the hardware input
 class SensitivityObject:
@@ -314,11 +311,11 @@ def drawVectors(viewport, ui, camera):
 
 # Execute clearVectors
 #   Inputs:
-#       
+#       ui
 #   Outputs:
 #       N/A
 # clear the vectors that are drawn for testing
-def clearVectors(viewport, ui, camera):
+def clearVectors(ui):
     try:
         global comp
 
@@ -395,6 +392,17 @@ def run(context):
     try:
         # create and initialize the application, viewport, and camera objects
         app = adsk.core.Application.get()
+
+        # initialize drawing variables
+        product = app.activeProduct
+        design = adsk.fusion.Design.cast(product)
+        rootComp = design.rootComponent
+
+        # create new component: COMP
+        transform = adsk.core.Matrix3D.create()
+        occ = rootComp.occurrences.addNewComponent(transform)
+        comp = occ.component
+        comp.name = "COMP"
 
         # create and initialize the message ui
         ui = app.userInterface
@@ -944,7 +952,7 @@ class OTestingCommandExecuteHandler(adsk.core.CommandEventHandler):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
 
         # clear the previous vectors before drawing new ones
-        clearVectors(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
+        clearVectors(adsk.core.Application.get().userInterface)
 
         # draw the new vectors
         drawVectors(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
