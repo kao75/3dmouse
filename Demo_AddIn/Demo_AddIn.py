@@ -87,6 +87,8 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
 
     def notify(self, args):
         try:
+            global testing
+
             # Make sure a command isn't running before changes are made.
             if ui.activeCommand != 'SelectCommand':
                 ui.commandDefinitions.itemById('SelectCommand').execute()
@@ -97,12 +99,18 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
             y = int(eventArgs['y'])
             z = int(eventArgs['z'])
 
-            if(test_complete == False):
-                orientationTesting(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
+            # automatic testing
+            #if(test_complete == False):
+                #orientationTesting(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
+
+            # manual testing
+            if(testing == False):
+                testing = True
+                drawVectors(adsk.core.Application.get().activeViewport, ui, adsk.core.Application.get().activeViewport.camera)
 
             if mode == 0:
                 # execute Orbit
-                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
+                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * -1, y, z * -1)
             elif mode == 1:
                 # execute Pan
                 pan(adsk.core.Application.get(), x, y)
@@ -111,7 +119,7 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
                 zoom(adsk.core.Application.get(), x, y)
             else:
                 # error, default to Orbit
-                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x, y, z)
+                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * -1, y, z * -1)
 
         except:
             if ui:
@@ -150,22 +158,28 @@ def updateTest(viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz):
         global test_start, test_complete
 
         # the percent error allowed in checking the location of the eye
-        Ep = 0.10
-        uVp = 0.10
+        Ep = 0.25
+        uVp = 0.25
         
         # check the camera x coordinate to be within Ep percent of Ex
         if(camera.eye.x >= (Ex - Ep * Ex) and camera.eye.x <= (Ex + Ep * Ex)):
+            print("\tin1")
             # check the camera y coordinate to be within Ep percent of Ey
             if(camera.eye.y >= (Ey - Ep * Ey) and camera.eye.y <= (Ey + Ep * Ey)):
+                print("\t\tin2")
                 # check the camera z coodrinate to be within Ep percent of Ez
                 if(camera.eye.z >= (Ez - Ep * Ez) and camera.eye.z <= (Ez + Ep * Ez)):
+                    print("\t\t\tin3")
                     # camera eye is correcct, check upVector
                     # check the upVector x coordinate to be within uVp percent of uVx
                     if(camera.upVector.x >= (uVx - uVp * uVx) and camera.upVector.x <= (uVx + uVp * uVx)):
+                        print("\t\t\t\tin4")
                         # check the upVector y coordinate to be within uVp percent of uVy
                         if(camera.upVector.y >= (uVy - uVp * uVy) and camera.upVector.y <= (uVy + uVp * uVy)):
+                            print("\t\t\t\t\tin5")
                             # check the upVector z coordinate to be within uVp percent of uVz
                             if(camera.upVector.z >= (uVz - uVp * uVz) and camera.upVector.z <= (uVz + uVp * uVz)):
+                                print("\t\t\t\t\t\tin6")
                                 # camera eye and upVector are correct
                                 print("Orientation Testing Complete!")
                                 print("Time Elapsed: " + str(datetime.now().time() - test_start))
@@ -224,6 +238,19 @@ def drawVectors(viewport, ui, camera):
         uVy = Ey - vec.y
         uVz = Ez - vec.z
 
+        uVx2 = uVx - Ex
+        uVy2 = uVy - Ey
+        uVz2 = uVz - Ez
+
+        uVx3 = uVx2 / pow(pow(uVx2, 2) + pow(uVy2, 2) + pow(uVz2, 2), 0.5)
+        uVy3 = uVy2 / pow(pow(uVx2, 2) + pow(uVy2, 2) + pow(uVz2, 2), 0.5)
+        uVz3 = uVz2 / pow(pow(uVx2, 2) + pow(uVy2, 2) + pow(uVz2, 2), 0.5)
+
+        print("Test upVector:")
+        print("x: " + str(uVx3))
+        print("y: " + str(uVy3))
+        print("z: " + str(uVz3))
+
         # define root component
         rootComp = design.rootComponent
 
@@ -243,6 +270,11 @@ def drawVectors(viewport, ui, camera):
         lines = sketch.sketchCurves.sketchLines
         line1 = lines.addByTwoPoints(viewport.camera.target, adsk.core.Point3D.create(Ex, Ey, Ez))
         line2 = lines.addByTwoPoints(adsk.core.Point3D.create(Ex, Ey, Ez), adsk.core.Point3D.create(uVx, uVy, uVz))
+
+        uVx = uVx3
+        uVy = uVy3
+        uVz = uVz3
+
     except:
         if ui:
             ui.messageBox('Failed in drawVectors:\n{}'.format(traceback.format_exc()))

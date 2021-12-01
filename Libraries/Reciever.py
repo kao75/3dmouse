@@ -58,7 +58,10 @@ class Reciever:
             raise RuntimeError('No available COM ports detected.')
         self.reciever = None
         for port in ports:
-            if port.description.startswith('3D Mouse') or port.description.startswith('Arduino NANO Every') or port.description.startswith('USB Serial Port') or port.description.startswith('USB Serial Device'):
+            HWID = port.hwid.split('\\')[1].split('&')
+            VID = HWID[0].split('_')[1]
+            PID = HWID[1].split('_')[1]
+            if VID == '04B4' and PID == '0003':
                 self.reciever = serial.Serial(port=port.device, baudrate=115200, timeout=.1)
                 break
         if self.reciever is None:
