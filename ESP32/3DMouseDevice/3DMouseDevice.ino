@@ -4,6 +4,58 @@
  * Last Modified: 11/29/2021
  */
 
+
+// Global variables for interrupt
+volatile byte modeCounter = 0;
+
+// Global variables
+int16_t xRel, yRel, zRel;
+byte modeNumber = 0;
+static const uint16_t SPI_CLK = 8000000; // 8 MHz
+uint16_t xPrev = 0, yPrev = 0, zPrev = 0;
+char incomingChar = '\0';
+
+// Include the WiFi library and esp_now in this sketch
+#include <esp_now.h>
+#include <WiFi.h>
+
+uint8_t receiverAddress[] = {0x84, 0xCC, 0xA8, 0x47, 0xD4, 0x7C};
+
+typedef struct broadcastToReceiver {
+  int mode;
+  int x;
+  int y;
+  int z;
+} broadcastToReceiver;
+typedef struct incomingReceiverMessage {
+  char receiverChar;
+} incomingReceiverMessage;
+
+broadcastToReceiver EncoderData;
+incomingReceiverMessage IncomingReceiverCommand;
+
+// Callback when data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("\r\nLast Packet Send Status:\t");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
+// Callback when data is received
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&IncomingReceiverCommand, incomingData, sizeof(IncomingReceiverCommand));
+  Serial.print("Bytes received: ");
+  Serial.println(len);
+  char receiverChar = IncomingReceiverCommand.receiverChar;
+  if (receiverChar == 'w') {
+    // Send data request to mouse, get new data
+    modeNumber = modeCounter % 3;
+    updateLeds();
+    sendEncoderData();     // Send new data
+    sendData();
+  }
+}
+
+
 // Include the SPI library in this sketch
 #include "SPI.h"
 
@@ -43,15 +95,6 @@
 // Uninitalized pointer to SPI object
 SPIClass * hspi = NULL;
 
-// Global variables for interrupt
-volatile byte modeCounter = 0;
-
-// Global variables
-byte modeNumber = 0;
-static const uint16_t SPI_CLK = 8000000; // 8 MHz
-uint16_t xPrev = 0, yPrev = 0, zPrev = 0;
-char incomingChar = '\0';
-
 
 void setup() {
     Serial.begin(115200);
@@ -87,6 +130,29 @@ void setup() {
     pinMode(LED_PAN_PIN, OUTPUT);
     pinMode(LED_ZOOM_PIN, OUTPUT);
     pinMode(LED_ORBIT_PIN, OUTPUT);
+    
+
+    // Set WiFi mode and initialize ESP-NOW
+    WiFi.mode(WIFI_MODE_STA);
+    if (esp_now_init() != ESP_OK) {
+      Serial.println("Error initializing ESP-NOW");
+      return;
+    }
+    // Once ESPNow is successfully Init, we will register for Send CB to get the status of Trasnmitted packet
+    esp_now_register_send_cb(OnDataSent);
+    // Register peer
+    esp_now_peer_info_t peerInfo;
+    memcpy(peerInfo.peer_addr, receiverAddress, 6);
+    peerInfo.channel = 0;  
+    peerInfo.encrypt = false;
+    // Add peer        
+    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+      Serial.println("Failed to add peer");
+      return;
+    }
+    // Register for a callback function that will be called when data is received
+    esp_now_register_recv_cb(OnDataRecv);
+
 
     // Blink all LEDs
     // Init LEDs to off
@@ -96,22 +162,9 @@ void setup() {
 }
 
 void loop() {
-
-    // Recieved new command
-    if (Serial.available() > 0) {
-        incomingChar = Serial.read();
-
-        // Recieved 'w' command
-        if (incomingChar == 'w') {
-            // Send data request to mouse, get new data
-            modeNumber = modeCounter % 3;
-            updateLeds();
-            sendData();     // Send new data
-        }
-    }
 }
 
-void sendData(){
+void sendEncoderData(){
     // USED FOR DEBUGGING
     // unsigned long startTime = micros();
 
@@ -121,7 +174,7 @@ void sendData(){
     uint16_t zPos = getData(Z_CS_PIN, ANGLECOM_REG);
 
     // Calculate relative position change from encoders
-    int16_t xRel, yRel, zRel;
+    
     if(xPos == 0xFFFF){
         getData(X_CS_PIN, ERRFL_REG);
         xRel = 0;
@@ -144,15 +197,15 @@ void sendData(){
         zRel = calcRelData(zPos, &zPrev);
     }
 
-    // Send mode\tx\ty\tz\n
-    Serial.print(modeNumber, DEC);
-    Serial.print('\t');
-    Serial.print(xRel, DEC);
-    Serial.print('\t');
-    Serial.print(yRel, DEC);
-    Serial.print('\t');
-    Serial.print(zRel, DEC);
-    Serial.print('\n');
+//    // Send mode\tx\ty\tz\n
+//    Serial.print(modeNumber, DEC);
+//    Serial.print('\t');
+//    Serial.print(xRel, DEC);
+//    Serial.print('\t');
+//    Serial.print(yRel, DEC);
+//    Serial.print('\t');
+//    Serial.print(zRel, DEC);
+//    Serial.print('\n');
 
     // USED FOR DEBUGGING
     // unsigned long endTime = micros();
@@ -279,4 +332,21 @@ void ledsOn(){
   digitalWrite(LED_PAN_PIN, HIGH);
   digitalWrite(LED_ZOOM_PIN, HIGH);
   digitalWrite(LED_ORBIT_PIN, HIGH);
+}
+
+void sendData() {
+  // update EncoderData varaible with current encoder values
+    EncoderData.mode = modeNumber;
+    EncoderData.x = xRel;
+    EncoderData.y = yRel;
+    EncoderData.z = zRel;
+    // Send encoder data message via ESP-NOW
+    esp_err_t result = esp_now_send(receiverAddress, (uint8_t *) &EncoderData, sizeof(EncoderData));
+     
+    if (result == ESP_OK) {
+      Serial.println("Sent with success");
+    }
+    else {
+      Serial.println("Error sending the data");
+    }
 }
