@@ -70,7 +70,7 @@ class SensitivityObject:
         self.dirX = newdirX
         self.dirY = newdirY
         self.dirZ = newdirZ
-    
+
     def getOrbitSensitivity(self):
         return self.orbitSensitivity
 
@@ -88,7 +88,7 @@ class SensitivityObject:
 
     def getZoomMultiplier(self):
         return self.zoomSensitivity
-    
+
     def getDirections(self):
         return {'x': self.dirX, 'y': self.dirY, 'z': self.dirZ}
 
@@ -133,7 +133,7 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
 
 # Execute orientationTesting
 #   Inputs:
-#       testing
+#       viewport, ui, camera
 #   Outputs:
 #       N/A
 # Method to perform orientation testing
@@ -155,7 +155,7 @@ def orientationTesting(viewport, ui, camera):
 
 # Execute updateTest
 #   Inputs:
-#       N/A
+#       viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz
 #   Ouputs:
 #       N/A
 # check to see if the camera orientation is close to the testing vectors
@@ -198,7 +198,7 @@ def updateTest(viewport, ui, camera, Ex, Ey, Ez, uVx, uVy, uVz):
 
 # Execute drawVectors
 #   Inputs:
-#       testing
+#       viewport, ui, camera
 #   Outputs:
 #       N/A
 # Draws the vectors for the orientationTesting
@@ -298,7 +298,7 @@ def clearVectors(ui):
 
 # Execute threeRand
 #   Inputs:
-#       app, viewport
+#       viewport, ui
 #   Outputs
 #       [float], [float], [float]
 # Create three normalized random floating points
@@ -483,7 +483,7 @@ def run(context):
 def stop(context):
     try:
         stopFlag.set()
-        
+
         global reciever
         if reciever is not None:
             reciever.close()
@@ -948,7 +948,7 @@ class ClearVectorCommandExecuteHandler(adsk.core.CommandEventHandler):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
         # clear vector
         clearVectors(ui)
-        
+
 
 # Creating the Mouse Testing Event
 class MouseTestingCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
