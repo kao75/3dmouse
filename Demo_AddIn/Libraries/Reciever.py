@@ -125,8 +125,12 @@ class Reciever:
 
     def close(self):
         """function to stop streaming and close serial connection with reciever"""
+        self.reciever.reset_output_buffer()
+        time.sleep(.75)
+        self.reciever.reset_input_buffer()
+        time.sleep(.75)
         self.streaming = False
-        time.sleep(1)
+        time.sleep(.75)
         self.reciever.close()
 
 
