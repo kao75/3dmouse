@@ -106,8 +106,8 @@ class Reciever:
             try:
                 parsed = [int(item) for item in parsed]
                 mode = parsed[0]
-                x = parsed[1]
-                y = parsed[2]
+                x = parsed[2]
+                y = parsed[1]
                 z = parsed[3]
 
                 self.mode = mode
