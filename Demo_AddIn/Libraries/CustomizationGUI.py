@@ -6,24 +6,41 @@ import time
 
 class SensitivityObject:
     def __init__(self):
-        self.orbitSensitivity = 1
-        self.panSensitivity = .0075  # inches per degree
-        self.zoomSensitivity = .00125
+        self.orbitSensitivity = 1  # degrees per trackball degree
+        self.panSensitivity = .0075  # inches per trackball degree
+        self.zoomSensitivity = .00125  # inches per trackball degree
+        self.dirX = 1
+        self.dirY = -1
+        self.dirZ = 1
 
-    def update(self, neworbit, newpan, newzoom):
+    def update(self, neworbit, newpan, newzoom, newdirX, newdirY, newdirZ):
         self.orbitSensitivity = neworbit
         self.panSensitivity = newpan
         self.zoomSensitivity = newzoom
-        print('\n\nINSIDE OF UPDATE\n\n')
+        self.dirX = newdirX
+        self.dirY = newdirY
+        self.dirZ = newdirZ
 
     def getOrbitSensitivity(self):
         return self.orbitSensitivity
 
+    def getOrbitMultiplier(self):
+        return 75 * self.orbitSensitivity
+
     def getPanSensitivity(self):
         return self.panSensitivity
 
+    def getPanMultiplier(self):
+        return .0247 * self.panSensitivity
+
     def getZoomSensitivity(self):
         return self.zoomSensitivity
+
+    def getZoomMultiplier(self):
+        return self.zoomSensitivity
+
+    def getDirections(self):
+        return {'x': self.dirX, 'y': self.dirY, 'z': self.dirZ}
 
 
 class CustomizationGUI:
@@ -38,11 +55,31 @@ class CustomizationGUI:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
-        ttk.Button(mainframe, text="Cancel", command=self.root.destroy).grid(column=5, row=6, sticky=W)
-        ttk.Button(mainframe, text="Apply", command=self.apply).grid(column=6, row=6, sticky=W)
+        ttk.Button(mainframe, text="Cancel", command=self.root.destroy).grid(column=1, row=6, sticky=W)
+        ttk.Button(mainframe, text="Apply", command=self.apply).grid(column=5, row=6, sticky=W)
 
-        # self.inverted = tk.BooleanVar()
-        # Checkbutton(mainframe, text="Inverted", variable=self.inverted).grid(column=1, row=4, sticky='WE')
+        directions = self.sensitivity_object.getDirections()
+
+        self.invertedX = tk.BooleanVar()
+        if directions['x'] == 1:
+            self.invertedX.set(False)
+        else:
+            self.invertedX.set(True)
+        Checkbutton(mainframe, text="Invert X", variable=self.invertedX).grid(column=5, row=1, sticky='W')
+
+        self.invertedY = tk.BooleanVar()
+        if directions['y'] == 1:
+            self.invertedY.set(False)
+        else:
+            self.invertedY.set(True)
+        Checkbutton(mainframe, text="Invert Y", variable=self.invertedY).grid(column=5, row=2, sticky='W')
+
+        self.invertedZ = tk.BooleanVar()
+        if directions['z'] == 1:
+            self.invertedZ.set(False)
+        else:
+            self.invertedZ.set(True)
+        Checkbutton(mainframe, text="Invert Z", variable=self.invertedZ).grid(column=5, row=3, sticky='W')
 
         self.orbit_sensitivity = tk.DoubleVar()
         self.orbit_sensitivity.set(self.sensitivity_object.getOrbitSensitivity())
@@ -75,7 +112,7 @@ class CustomizationGUI:
         pan_slider = ttk.Scale(
             mainframe,
             from_=.0025,
-            to=.015,
+            to=.3,
             orient='horizontal',
             command=self.pan_slider_changed,
             variable=self.pan_sensitivity
@@ -100,7 +137,7 @@ class CustomizationGUI:
         zoom_slider = ttk.Scale(
             mainframe,
             from_=.001,
-            to=.003,
+            to=.35,
             orient='horizontal',
             command=self.zoom_slider_changed,
             variable=self.zoom_sensitivity
@@ -122,9 +159,6 @@ class CustomizationGUI:
         for child in mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
 
-        # self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        # self.root.bind("<FocusOut>", sensitivity_object(self.orbit_sensitivity.get(), self.pan_sensitivity.get(), self.zoom_sensitivity.get()))
-        # self.root.bind("<Return>", sensitivity_object(self.orbit_sensitivity.get(), self.pan_sensitivity.get(), self.zoom_sensitivity.get()))
         self.root.mainloop()
 
     def on_closing(self):
@@ -137,7 +171,16 @@ class CustomizationGUI:
         return self.orbit_sensitivity.get(), self.pan_sensitivity.get(), self.zoom_sensitivity.get()
 
     def apply(self):
-        self.sensitivity_object.update(self.orbit_sensitivity.get(), self.pan_sensitivity.get(), self.zoom_sensitivity.get())
+        newdirX = 1
+        newdirY = 1
+        newdirZ = 1
+        if self.invertedX.get() == True:
+            newdirX = -1
+        if self.invertedY.get() == True:
+            newdirY = -1
+        if self.invertedZ.get() == True:
+            newdirZ = -1
+        self.sensitivity_object.update(self.orbit_sensitivity.get(), self.pan_sensitivity.get(), self.zoom_sensitivity.get(), newdirX, newdirY, newdirZ)
 
     def get_current_orbit(self):
         return '{: .4f} degrees per trackball degree'.format(self.orbit_sensitivity.get())
@@ -161,7 +204,9 @@ class CustomizationGUI:
 def main():
     so = SensitivityObject()
     gui = CustomizationGUI(so)
-    print('1')
+    print(so.dirX)
+    print(so.dirY)
+    print(so.dirZ)
     time.sleep(4)
 
 

@@ -6,26 +6,23 @@
 
 # import libraries
 import adsk.core, adsk.fusion, adsk.cam, traceback, math, random
-import sys, time, json
+import sys, time, json, os, inspect
 import threading
 from datetime import datetime
 
+
 # set python.analysis.extraPaths to ../Libraries in .vscode settings
-sys.path.append('C://Users//mcqkn//OneDrive//Documents//GitHub//3dmouse//Libraries')
+# sys.path.append('C://Users//omara//PycharmProjects//3dmouse//Libraries')
+libraries_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"Libraries")))
+if libraries_subfolder not in sys.path:
+    sys.path.insert(0, libraries_subfolder)
 import serial
 import serial.tools.list_ports
 from Reciever import Reciever
 from CustomizationGUI import CustomizationGUI
 
-
-# reciever initialization
-reciever = None
-try:
-    reciever = Reciever(timing=0)
-except:
-    print('Reciever could not be initialized.')
-
 # global variable initialization
+reciever = None
 app = None
 ui = adsk.core.UserInterface.cast(None)
 handlers = []
@@ -45,9 +42,8 @@ uVz = 0
 test_start = 0.0
 test_end = False
 test_complete = False
-dirX = 1
-dirY = -1
-dirZ = 1
+line1 = None
+line2 = None
 
 # initialize drawing variables and component
 product = None
@@ -59,29 +55,32 @@ comp = None
 
 # The class for handling sensitivity of the hardware input
 class SensitivityObject:
-
     def __init__(self):
         self.orbitSensitivity = 1       # degrees per trackball degree
         self.panSensitivity = .0075     # inches per trackball degree
         self.zoomSensitivity = .00125   # inches per trackball degree
-    
-    def update(self, neworbit, newpan, newzoom):
+        self.dirX = 1
+        self.dirY = -1
+        self.dirZ = 1
+
+    def update(self, neworbit, newpan, newzoom, newdirX, newdirY, newdirZ):
         self.orbitSensitivity = neworbit
         self.panSensitivity = newpan
         self.zoomSensitivity = newzoom
+        self.dirX = newdirX
+        self.dirY = newdirY
+        self.dirZ = newdirZ
     
     def getOrbitSensitivity(self):
         return self.orbitSensitivity
 
     def getOrbitMultiplier(self):
-        #return 750 * self.orbitSensitivity
         return 75 * self.orbitSensitivity
     
     def getPanSensitivity(self):
         return self.panSensitivity
     
     def getPanMultiplier(self):
-        # return 25 * .0247 * self.panSensitivity # for breadboard setup
         return .0247 * self.panSensitivity
     
     def getZoomSensitivity(self):
@@ -89,7 +88,9 @@ class SensitivityObject:
 
     def getZoomMultiplier(self):
         return self.zoomSensitivity
-        # return 20 * self.zoomSensitivity # for breadboard setup
+    
+    def getDirections(self):
+        return {'x': self.dirX, 'y': self.dirY, 'z': self.dirZ}
 
 # The event handler that responds to the update camera custom event being fired.
 class ThreadEventHandler(adsk.core.CustomEventHandler):
@@ -110,63 +111,25 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
             y = int(eventArgs['y'])
             z = int(eventArgs['z'])
 
-            # automatic testing
-            #if(test_complete == False):
-                #orientationTesting(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
-
-            # manual testing
-            #if(testing == False):
-                #testing = True
-                #drawVectors(adsk.core.Application.get().activeViewport, ui, adsk.core.Application.get().activeViewport.camera)
+            global sensitivity_object
+            dir = sensitivity_object.getDirections()
 
             if mode == 0:
                 # execute Orbit
-                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * dirX, y * dirY, z * dirZ)
+                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * dir['x'], y * dir['y'], z * dir['z'])
             elif mode == 1:
                 # execute Pan
-                pan(adsk.core.Application.get(), x, y)
+                pan(adsk.core.Application.get(), x * dir['x'], y * dir['y'])
             elif mode == 2:
                 # execute Zoom
-                zoom(adsk.core.Application.get(), x, y)
+                zoom(adsk.core.Application.get(), x * dir['x'], y * dir['y'])
             else:
                 # error, default to Orbit
-                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * dirX, y * dirY, z * dirZ)
+                orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * dir['x'], y * dir['y'], z * dir['z'])
 
         except:
             if ui:
                 ui.messageBox('Failed in notify:\n{}'.format(traceback.format_exc()))
-
-# Execute invertDirections
-#   Inputs:
-#       
-#   Outputs:
-#       N/A
-# invert the directions of the 3D Mouse
-def invertDirections():
-    try:
-        global dirX, dirY, dirZ
-
-        # invert the x direction
-        if(dirX == 1):
-            dirX = -1
-        else:
-            dirX = 1
-        
-        # invert the y direction
-        if(dirY == 1):
-            dirY = -1
-        else:
-            dirY = 1
-
-        # invert the z direction
-        if(dirZ == 1):
-            dirZ = -1
-        else:
-            dirZ = 1
-
-    except:
-        if ui:
-            ui.messageBox('Failed in invertDirections:\n{}'.format(traceback.format_exc()))
 
 # Execute orientationTesting
 #   Inputs:
@@ -297,6 +260,11 @@ def drawVectors(viewport, ui, camera):
         sketch = sketches.add(xyPlane)
 
         # Draw line on COMP from the camera target to the random point
+        global line1, line2
+        if line1 != None:
+            line1.deleteMe()
+        if line2 != None:
+            line2.deleteMe()
         lines = sketch.sketchCurves.sketchLines
         line1 = lines.addByTwoPoints(viewport.camera.target, adsk.core.Point3D.create(Ex, Ey, Ez))
         line2 = lines.addByTwoPoints(adsk.core.Point3D.create(Ex, Ey, Ez), adsk.core.Point3D.create(uVx, uVy, uVz))
@@ -317,10 +285,13 @@ def drawVectors(viewport, ui, camera):
 # clear the vectors that are drawn for testing
 def clearVectors(ui):
     try:
-        global comp
-
-        for occurance in rootComp.occurancesByComponent(comp):
-            occurance.deleteMe()
+        global line1, line2
+        if line1 != None:
+            line1.deleteMe()
+        if line2 != None:
+            line2.deleteMe()
+        line1 = None
+        line2 = None
     except:
         if ui:
             ui.messageBox('Failed in clearVectors:\n{}'.format(traceback.format_exc()))
@@ -358,27 +329,41 @@ def threeRand(viewport, ui):
         if ui:
             ui.messageBox('Failed in threeRand:\n{}'.format(traceback.format_exc()))
 
-# The class for the worker thread responsible for polling the reciever Sand firing the update camera event.
+# The class for the worker thread responsible for polling the reciever and firing the update camera event.
 class WorkerThread(threading.Thread):
     def __init__(self, event):
         threading.Thread.__init__(self)
         self.stopped = event
 
     def run(self):
-        reciever.fetch_data()   # throw out first fetch
+        global reciever
         while True:
-            mode, x, y, z = reciever.fetch_data()
-            if abs(x) <= 10:
-                x = 0
-            if abs(y) <= 10:
-                y = 0
-            if abs(z) <= 10:
-                z = 0
+            if reciever is None:
+                try:
+                    reciever = Reciever(timing=0)
+                    reciever.fetch_data()   # throw out first fetch
+                    print('3D Mouse Connected')
+                except:
+                    reciever = None
+            if reciever is not None:
+                try:
+                    mode, x, y, z = reciever.fetch_data()
+                    if abs(x) <= 10:
+                        x = 0
+                    if abs(y) <= 10:
+                        y = 0
+                    if abs(z) <= 10:
+                        z = 0
 
-            if  x != 0 or y != 0 or z != 0:
-                #print('reciever:', mode, x, y, z)
-                args = {'mode': mode,'x': x, 'y': y, 'z': z}
-                app.fireCustomEvent(updateCameraEventID, json.dumps(args))
+                    if  x != 0 or y != 0 or z != 0:
+                        # print('reciever:', mode, x, y, z)
+                        args = {'mode': mode,'x': x, 'y': y, 'z': z}
+                        app.fireCustomEvent(updateCameraEventID, json.dumps(args))
+                except:
+                    reciever.close()
+                    print('3D Mouse Disonnected')
+                    time.sleep(3)
+                    reciever = None
 
 # Execute run
 #   Inputs:
@@ -386,8 +371,7 @@ class WorkerThread(threading.Thread):
 #   Outputs:
 #       N/A
 def run(context):
-    global ui
-    global app
+    global ui, app, product, design, rootComp, transform, occ, comp
 
     try:
         # create and initialize the application, viewport, and camera objects
@@ -441,40 +425,30 @@ def run(context):
         testingButton.commandCreated.add(mouseTestingCommandCreated)
         handlers.append(mouseTestingCommandCreated)
 
-        # Create the unit testing button command definition.
-        if ui.commandDefinitions.itemById('MouseSpeedTestingButtonID'):
-            ui.commandDefinitions.itemById('MouseSpeedTestingButtonID').deleteMe()
-        speedTestingButton = cmdDefs.addButtonDefinition('MouseSpeedTestingButtonID', '3D Mouse Speed Testing',
-                                                    'Run speed testing for 3D Mouse')
-        # Connect to the command created event.
-        mouseSpeedTestingCommandCreated = MouseTestingCommandCreatedEventHandler()
-        speedTestingButton.commandCreated.add(mouseTestingCommandCreated)
-        handlers.append(mouseSpeedTestingCommandCreated)
-
         # Create the orientation testing button command definition.
         if ui.commandDefinitions.itemById('OrientationTestingButtonID'):
             ui.commandDefinitions.itemById('OrientationTestingButtonID').deleteMe()
-        oTestingButton = cmdDefs.addButtonDefinition('OrientationTestingButton', 'Orientation Testing', 'Initialize Orientation Test')
+        oTestingButton = cmdDefs.addButtonDefinition('OrientationTestingButtonID', 'Orientation Testing', 'Initialize Orientation Test')
         # Connect to the command created event.
         mouseOTestingCommandCreated = OTestingCommandCreatedEventHandler()
         oTestingButton.commandCreated.add(mouseOTestingCommandCreated)
         handlers.append(mouseOTestingCommandCreated)
 
-        # Create the invert directions button command definition.
-        if ui.commandDefinitions.itemById('InvertDirectionsButtonID'):
-            ui.commandDefinitions.itemById('InvertDirectionsButtonID').deleteMe()
-        invertDirectionsButton = cmdDefs.addButtonDefinition('InvertDirectionsButtonID', 'Hardware Controls', 'Invert Hardware Direction')
+         # Create the unit testing button command definition.
+        if ui.commandDefinitions.itemById('ClearVectorButtonID'):
+            ui.commandDefinitions.itemById('ClearVectorButtonID').deleteMe()
+        clearVectorButton = cmdDefs.addButtonDefinition('ClearVectorButtonID', 'Clear Vector',
+                                                    'Clear Vector from Orientation Testing')
         # Connect to the command created event.
-        invertDirectionsCommandCreated = invertDirectionsCommandCreatedEventHandler()
-        invertDirectionsButton.commandCreated.add(invertDirectionsCommandCreated)
-        handlers.append(invertDirectionsCommandCreated)
+        clearVectorCommandCreated = ClearVectorCommandCreatedEventHandler()
+        clearVectorButton.commandCreated.add(clearVectorCommandCreated)
+        handlers.append(clearVectorCommandCreated)
 
         # add the buttons to the toolbar panel
         mouseToolbarPanel.controls.addCommand(settingsButton)
         mouseToolbarPanel.controls.addCommand(testingButton)
-        mouseToolbarPanel.controls.addCommand(speedTestingButton)
         mouseToolbarPanel.controls.addCommand(oTestingButton)
-        mouseToolbarPanel.controls.addCommand(invertDirectionsButton)
+        mouseToolbarPanel.controls.addCommand(clearVectorButton)
 
         # Register the custom event and connect the handler.
         global updateCameraEvent
@@ -508,6 +482,9 @@ def run(context):
 #       N/A
 def stop(context):
     try:
+        stopFlag.set()
+        
+        global reciever
         if reciever is not None:
             reciever.close()
 
@@ -515,7 +492,6 @@ def stop(context):
         if mouseToolbarPanel:
             mouseToolbarPanel.deleteMe()
 
-        stopFlag.set()
         app.unregisterCustomEvent(updateCameraEventID)
         
         ui.messageBox('3D Mouse Demo\nAdd-In Stopped')
@@ -909,7 +885,6 @@ def pan(app, x, y):
 # The zoom algorithm
 def zoom(app, x, y):
     try:
-
         cam = app.activeViewport.camera
 
         global sensitivity_object
@@ -938,7 +913,6 @@ class OTestingCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
     def notify(self, args):
         eventArgs = adsk.core.CommandCreatedEventArgs.cast(args)
         cmd = eventArgs.command
-
         # Connect to the execute event.
         onExecute = OTestingCommandExecuteHandler()
         cmd.execute.add(onExecute)
@@ -950,35 +924,31 @@ class OTestingCommandExecuteHandler(adsk.core.CommandEventHandler):
         super().__init__()
     def notify(self, args):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
-
-        # clear the previous vectors before drawing new ones
-        clearVectors(adsk.core.Application.get().userInterface)
-
         # draw the new vectors
         drawVectors(adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, adsk.core.Application.get().activeViewport.camera)
-        
-# Creating the invertDirections Event
-class invertDirectionsCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
+
+
+# Creating the Clear Vector Event
+class ClearVectorCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
     def __init__(self):
         super().__init__()
     def notify(self, args):
         eventArgs = adsk.core.CommandCreatedEventArgs.cast(args)
         cmd = eventArgs.command
-
         # Connect to the execute event.
-        onExecute = invertDirectionsCommandExecuteHandler()
+        onExecute = ClearVectorCommandExecuteHandler()
         cmd.execute.add(onExecute)
         handlers.append(onExecute)
 
-# Execute event handler for invertDirections
-class invertDirectionsCommandExecuteHandler(adsk.core.CommandEventHandler):
+# Execute event handler for Clear Vector
+class ClearVectorCommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
         super().__init__()
     def notify(self, args):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
-
-        #invert the directions of the hardware input
-        invertDirections()
+        # clear vector
+        clearVectors(ui)
+        
 
 # Creating the Mouse Testing Event
 class MouseTestingCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
@@ -987,7 +957,6 @@ class MouseTestingCommandCreatedEventHandler(adsk.core.CommandCreatedEventHandle
     def notify(self, args):
         eventArgs = adsk.core.CommandCreatedEventArgs.cast(args)
         cmd = eventArgs.command
-
         # Connect to the execute event.
         onExecute = MouseTestingCommandExecuteHandler()
         cmd.execute.add(onExecute)
@@ -1000,11 +969,9 @@ class MouseTestingCommandExecuteHandler(adsk.core.CommandEventHandler):
     def notify(self, args):
         eventArgs = adsk.core.CommandEventArgs.cast(args)
         global sensitivity_object
-
         testingStartTime = datetime.now()
         passed = 0
         failed = 0
-        
         print('\033[95m------------------  3D Mouse Unit Testing Starting  ------------------\033[0m')
 
         pass_string = '\033[92m' + 'PASS  |  ' + '\033[0m'
