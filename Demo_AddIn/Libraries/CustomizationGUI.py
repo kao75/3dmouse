@@ -1,6 +1,4 @@
 from tkinter import *
-from tkinter import ttk
-import tkinter as tk
 import time
 
 
@@ -50,44 +48,48 @@ class CustomizationGUI:
         self.closed = False
         self.sensitivity_object = sensitivity_object
 
-        mainframe = ttk.Frame(self.root, padding="3 3 12 12")
+        mainframe = Frame(self.root, padx=3, pady=12)
         mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
-        ttk.Button(mainframe, text="Cancel", command=self.root.destroy).grid(column=1, row=6, sticky=W)
-        ttk.Button(mainframe, text="Apply", command=self.apply).grid(column=5, row=6, sticky=W)
+        # cancel_image = PhotoImage(file=r"./resources/cancel.png")
+        # apply_image = PhotoImage(file=r"./resources/apply.png")
+
+        Button(mainframe, text='Cancel', bg='red', height=1, width=10, fg='white', command=self.root.destroy).grid(column=1, row=6, sticky=W)
+        Button(mainframe, text='Apply', bg='green', height=1, width=10, fg='white', command=self.apply).grid(column=5, row=6, sticky=W)
 
         directions = self.sensitivity_object.getDirections()
 
-        self.invertedX = tk.BooleanVar()
+        self.invertedX = BooleanVar()
         if directions['x'] == 1:
             self.invertedX.set(False)
         else:
             self.invertedX.set(True)
         Checkbutton(mainframe, text="Invert X", variable=self.invertedX).grid(column=5, row=1, sticky='W')
 
-        self.invertedY = tk.BooleanVar()
+        self.invertedY = BooleanVar()
         if directions['y'] == 1:
             self.invertedY.set(False)
         else:
             self.invertedY.set(True)
         Checkbutton(mainframe, text="Invert Y", variable=self.invertedY).grid(column=5, row=2, sticky='W')
 
-        self.invertedZ = tk.BooleanVar()
+        self.invertedZ = BooleanVar()
         if directions['z'] == 1:
             self.invertedZ.set(False)
         else:
             self.invertedZ.set(True)
         Checkbutton(mainframe, text="Invert Z", variable=self.invertedZ).grid(column=5, row=3, sticky='W')
 
-        self.orbit_sensitivity = tk.DoubleVar()
+        self.orbit_sensitivity = DoubleVar()
         self.orbit_sensitivity.set(self.sensitivity_object.getOrbitSensitivity())
-        ttk.Label(mainframe, text="Orbit Sensitivity:").grid(column=1, row=1, sticky=E)
-        orbit_slider = ttk.Scale(
+        Label(mainframe, text="Orbit Sensitivity:").grid(column=1, row=1, sticky=E)
+        orbit_slider = Scale(
             mainframe,
             from_=.25,
             to=3,
+            resolution=.01,
             orient='horizontal',
             command=self.orbit_slider_changed,
             variable=self.orbit_sensitivity
@@ -96,7 +98,7 @@ class CustomizationGUI:
             row=1,
             sticky='e'
         )
-        self.orbit_value_label = ttk.Label(
+        self.orbit_value_label = Label(
             mainframe,
             text=self.get_current_orbit()
         )
@@ -106,13 +108,14 @@ class CustomizationGUI:
             sticky='n'
         )
 
-        self.pan_sensitivity = tk.DoubleVar()
+        self.pan_sensitivity = DoubleVar()
         self.pan_sensitivity.set(self.sensitivity_object.getPanSensitivity())
-        ttk.Label(mainframe, text="Pan Sensitivity:").grid(column=1, row=2, sticky=E)
-        pan_slider = ttk.Scale(
+        Label(mainframe, text="Pan Sensitivity:").grid(column=1, row=2, sticky=E)
+        pan_slider = Scale(
             mainframe,
             from_=.0025,
             to=.3,
+            resolution=.0025,
             orient='horizontal',
             command=self.pan_slider_changed,
             variable=self.pan_sensitivity
@@ -121,7 +124,7 @@ class CustomizationGUI:
             row=2,
             sticky='e'
         )
-        self.pan_value_label = ttk.Label(
+        self.pan_value_label = Label(
             mainframe,
             text=self.get_current_pan()
         )
@@ -131,13 +134,14 @@ class CustomizationGUI:
             sticky='n'
         )
 
-        self.zoom_sensitivity = tk.DoubleVar()
+        self.zoom_sensitivity = DoubleVar()
         self.zoom_sensitivity.set(self.sensitivity_object.getZoomSensitivity())
-        ttk.Label(mainframe, text="Zoom Sensitivity:").grid(column=1, row=3, sticky=E)
-        zoom_slider = ttk.Scale(
+        Label(mainframe, text="Zoom Sensitivity:").grid(column=1, row=3, sticky=E)
+        zoom_slider = Scale(
             mainframe,
-            from_=.001,
+            from_=.0025,
             to=.35,
+            resolution=.0025,
             orient='horizontal',
             command=self.zoom_slider_changed,
             variable=self.zoom_sensitivity
@@ -146,7 +150,7 @@ class CustomizationGUI:
             row=3,
             sticky='e'
         )
-        self.zoom_value_label = ttk.Label(
+        self.zoom_value_label = Label(
             mainframe,
             text=self.get_current_zoom()
         )

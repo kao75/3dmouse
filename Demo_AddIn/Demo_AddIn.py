@@ -122,7 +122,7 @@ class ThreadEventHandler(adsk.core.CustomEventHandler):
                 pan(adsk.core.Application.get(), x * dir['x'], y * dir['y'])
             elif mode == 2:
                 # execute Zoom
-                zoom(adsk.core.Application.get(), x * dir['x'], y * dir['y'])
+                zoom(adsk.core.Application.get(), y * dir['y'])
             else:
                 # error, default to Orbit
                 orbit(adsk.core.Application.get(), adsk.core.Application.get().activeViewport, adsk.core.Application.get().userInterface, x * dir['x'], y * dir['y'], z * dir['z'])
@@ -354,6 +354,11 @@ class WorkerThread(threading.Thread):
                         y = 0
                     if abs(z) <= 10:
                         z = 0
+                    if abs(z) >= 200:
+                        x = 0
+                        y = 0
+                    if abs(x) >= 300 or abs(y) >= 300:
+                        z = 0
 
                     if x != 0 or y != 0 or z != 0:
                         # print('reciever:', mode, x, y, z)
@@ -361,8 +366,8 @@ class WorkerThread(threading.Thread):
                         app.fireCustomEvent(updateCameraEventID, json.dumps(args))
                 except:
                     reciever.close()
-                    print('3D Mouse Disonnected')
-                    time.sleep(3)
+                    print('3D Mouse Disconnected')
+                    time.sleep(2)
                     reciever = None
 
 # Execute run
@@ -419,7 +424,7 @@ def run(context):
         # Create the unit testing button command definition.
         if ui.commandDefinitions.itemById('MouseTestingButtonID'):
             ui.commandDefinitions.itemById('MouseTestingButtonID').deleteMe()
-        testingButton = cmdDefs.addButtonDefinition('MouseTestingButtonID', '3D Mouse Unit Testing', 'Run unit testing for 3D Mouse')
+        testingButton = cmdDefs.addButtonDefinition('MouseTestingButtonID', 'Unit Testing', 'Run unit testing for 3D Mouse')
         # Connect to the command created event.
         mouseTestingCommandCreated = MouseTestingCommandCreatedEventHandler()
         testingButton.commandCreated.add(mouseTestingCommandCreated)
@@ -883,7 +888,7 @@ def pan(app, x, y):
 #   Outputs:
 #       N/A
 # The zoom algorithm
-def zoom(app, x, y):
+def zoom(app, y):
     try:
         cam = app.activeViewport.camera
 
@@ -891,7 +896,7 @@ def zoom(app, x, y):
         zoom_multiplier = sensitivity_object.getZoomMultiplier()
         current_viewExtents = cam.viewExtents
         log_multiplier = abs(math.log(current_viewExtents, 20))
-        new_viewExtents = ((x+y)*log_multiplier*zoom_multiplier) + current_viewExtents
+        new_viewExtents = (y*log_multiplier*zoom_multiplier) + current_viewExtents
         if new_viewExtents < .15:
             new_viewExtents = .15
         cam.viewExtents = new_viewExtents
